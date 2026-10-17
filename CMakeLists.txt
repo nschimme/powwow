@@ -122,6 +122,11 @@ if(BUILD_GUI)
         set(CMAKE_AUTORCC ON)
         set(CMAKE_AUTOUIC ON)
 
+        # MSVC Static Runtime configuration if static build
+        if(MSVC AND NOT BUILD_SHARED_LIBS)
+            set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+        endif()
+
         set(GUI_SOURCES
             gui/main.cpp
             gui/mainwindow.cpp
@@ -130,6 +135,7 @@ if(BUILD_GUI)
             gui/terminalwidget.h
             gui/profilemanager.cpp
             gui/profilemanager.h
+            gui/resources.qrc
         )
 
         add_executable(powwow-gui ${GUI_SOURCES})

@@ -1,6 +1,7 @@
 #include "terminalwidget.h"
 #include <QCoreApplication>
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QKeyEvent>
 #include <QScrollBar>
@@ -10,6 +11,39 @@
 #include <QRegularExpression>
 #include <QProcessEnvironment>
 #include <QDebug>
+
+static QString extractEmbeddedPowwow()
+{
+    QString resPath = ":/bin/powwow";
+#ifdef Q_OS_WIN
+    if (!QFile::exists(resPath)) {
+        resPath = ":/bin/powwow.exe";
+    }
+#endif
+
+    if (!QFile::exists(resPath)) {
+        return QString();
+    }
+
+    QString tempDir = QDir::tempPath();
+    QString tempBin = tempDir + "/powwow_embedded";
+#ifdef Q_OS_WIN
+    tempBin += ".exe";
+#endif
+
+    QFile resFile(resPath);
+    if (resFile.open(QIODevice::ReadOnly)) {
+        QFile outFile(tempBin);
+        if (outFile.open(QIODevice::WriteOnly)) {
+            outFile.write(resFile.readAll());
+            outFile.close();
+            outFile.setPermissions(QFile::ExeUser | QFile::ReadUser | QFile::WriteUser |
+                                  QFile::ExeOwner | QFile::ReadOwner | QFile::WriteOwner);
+            return tempBin;
+        }
+    }
+    return QString();
+}
 
 TerminalWidget::TerminalWidget(const SessionProfile &profile, QWidget *parent)
     : QWidget(parent)
@@ -69,8 +103,12 @@ void TerminalWidget::startSession()
 #endif
 
     if (!QFileInfo::exists(powwowBin)) {
-        // Fallback to searching in PATH or working dir
-        powwowBin = "powwow";
+        QString embeddedBin = extractEmbeddedPowwow();
+        if (!embeddedBin.isEmpty()) {
+            powwowBin = embeddedBin;
+        } else {
+            powwowBin = "powwow";
+        }
     }
 
     // Configure environment variables (POWWOWEDITOR, POWWOWPAGER)
