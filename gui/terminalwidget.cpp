@@ -8,8 +8,10 @@
 #include <QTextCursor>
 #include <QColor>
 #include <QFontDatabase>
+#include <QFontMetrics>
 #include <QRegularExpression>
 #include <QProcessEnvironment>
+#include <QResizeEvent>
 #include <QDebug>
 
 static QString extractEmbeddedPowwow()
@@ -60,20 +62,21 @@ TerminalWidget::TerminalWidget(const SessionProfile &profile, QWidget *parent)
     topLayout->addWidget(m_disconnectButton);
     mainLayout->addLayout(topLayout);
 
-    // Terminal display area (Direct PuTTY interactive display)
-    m_terminalDisplay = new QTextEdit(this);
+    // Terminal display area using QPlainTextEdit (NoWrap for fixed grid alignment)
+    m_terminalDisplay = new QPlainTextEdit(this);
     m_terminalDisplay->setReadOnly(true);
+    m_terminalDisplay->setLineWrapMode(QPlainTextEdit::NoWrap);
     m_terminalDisplay->setFocusPolicy(Qt::StrongFocus);
-    m_terminalDisplay->setStyleSheet("QTextEdit { background-color: #000000; color: #CCCCCC; selection-background-color: #555555; }");
+    m_terminalDisplay->setStyleSheet("QPlainTextEdit { background-color: #000000; color: #CCCCCC; selection-background-color: #555555; }");
 
-    // Set monospace font
+    // Set monospace font for fixed character grid
     QFont font = QFontDatabase::systemFont(QFontDatabase::FixedFont);
     font.setPointSize(10);
     font.setStyleHint(QFont::Monospace);
     m_terminalDisplay->setFont(font);
     mainLayout->addWidget(m_terminalDisplay);
 
-    // Install event filter on terminal display to capture direct key presses (PuTTY style)
+    // Install event filter on terminal display for direct key inputs (PuTTY style)
     m_terminalDisplay->installEventFilter(this);
 
     // Connect signals
@@ -87,6 +90,8 @@ TerminalWidget::TerminalWidget(const SessionProfile &profile, QWidget *parent)
     // Default format setup
     m_currentFormat.setForeground(QColor("#CCCCCC"));
     m_currentFormat.setBackground(QColor("#000000"));
+
+    updateGridSize();
 }
 
 TerminalWidget::~TerminalWidget()
@@ -94,8 +99,28 @@ TerminalWidget::~TerminalWidget()
     stopSession();
 }
 
+void TerminalWidget::updateGridSize()
+{
+    QFontMetrics fm(m_terminalDisplay->font());
+    int charWidth = fm.horizontalAdvance('M');
+    int lineHeight = fm.height();
+
+    if (charWidth > 0 && lineHeight > 0) {
+        m_cols = qMax(20, m_terminalDisplay->viewport()->width() / charWidth);
+        m_lines = qMax(5, m_terminalDisplay->viewport()->height() / lineHeight);
+    }
+}
+
+void TerminalWidget::resizeEvent(QResizeEvent *event)
+{
+    QWidget::resizeEvent(event);
+    updateGridSize();
+}
+
 void TerminalWidget::startSession()
 {
+    updateGridSize();
+
     QString appDir = QCoreApplication::applicationDirPath();
     QString powwowBin = appDir + "/powwow";
 #ifdef Q_OS_WIN
@@ -111,7 +136,7 @@ void TerminalWidget::startSession()
         }
     }
 
-    // Configure environment variables (POWWOWEDITOR, POWWOWPAGER)
+    // Configure environment variables (POWWOWEDITOR, POWWOWPAGER, COLUMNS, LINES for NAWS)
     QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
     if (!m_profile.editor.isEmpty()) {
         env.insert("POWWOWEDITOR", m_profile.editor);
@@ -119,6 +144,9 @@ void TerminalWidget::startSession()
     if (!m_profile.pager.isEmpty()) {
         env.insert("POWWOWPAGER", m_profile.pager);
     }
+    env.insert("COLUMNS", QString::number(m_cols));
+    env.insert("LINES", QString::number(m_lines));
+
     m_process->setProcessEnvironment(env);
 
     QStringList args;
@@ -141,7 +169,7 @@ void TerminalWidget::startSession()
         args << QString::number(m_profile.port);
     }
 
-    m_terminalDisplay->append(tr("=== Connecting (%1 %2) ===").arg(m_profile.host, QString::number(m_profile.port)));
+    m_terminalDisplay->appendPlainText(tr("=== Connecting (%1 %2) [%3x%4] ===").arg(m_profile.host, QString::number(m_profile.port), QString::number(m_cols), QString::number(m_lines)));
 
     m_process->start(powwowBin, args);
     m_terminalDisplay->setFocus();
@@ -239,13 +267,13 @@ void TerminalWidget::onProcessFinished(int exitCode, QProcess::ExitStatus exitSt
 {
     Q_UNUSED(exitCode);
     Q_UNUSED(exitStatus);
-    m_terminalDisplay->append(tr("\n=== Session Disconnected ==="));
+    m_terminalDisplay->appendPlainText(tr("\n=== Session Disconnected ==="));
 }
 
 void TerminalWidget::onProcessError(QProcess::ProcessError error)
 {
     if (error == QProcess::FailedToStart) {
-        m_terminalDisplay->append(tr("\n[Error] Failed to start powwow executable. Make sure powwow is installed or in the same directory."));
+        m_terminalDisplay->appendPlainText(tr("\n[Error] Failed to start powwow executable. Make sure powwow is installed or in the same directory."));
     }
 }
 

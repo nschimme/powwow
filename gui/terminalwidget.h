@@ -2,7 +2,7 @@
 #define TERMINALWIDGET_H
 
 #include <QWidget>
-#include <QTextEdit>
+#include <QPlainTextEdit>
 #include <QPushButton>
 #include <QProcess>
 #include <QVBoxLayout>
@@ -20,6 +20,9 @@ public:
     void startSession();
     void stopSession();
 
+    int cols() const { return m_cols; }
+    int lines() const { return m_lines; }
+
 signals:
     void sessionClosed();
 
@@ -30,18 +33,22 @@ private slots:
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
+    void resizeEvent(QResizeEvent *event) override;
 
 private:
     void appendAnsiText(const QString &text);
     void applyAnsiCode(int code, QTextCharFormat &format);
     void sendKeyToProcess(QKeyEvent *keyEvent);
+    void updateGridSize();
 
     SessionProfile m_profile;
-    QTextEdit *m_terminalDisplay;
+    QPlainTextEdit *m_terminalDisplay;
     QPushButton *m_disconnectButton;
     QProcess *m_process;
 
     QTextCharFormat m_currentFormat;
+    int m_cols = 80;
+    int m_lines = 24;
 };
 
 #endif // TERMINALWIDGET_H
