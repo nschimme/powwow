@@ -19,6 +19,7 @@ option(BUILD_GUI "Build Qt6 GUI Launcher and Terminal" ON)
 # Definitions and config header simulation for C core
 add_definitions(-DHAVE_CONFIG_H=1)
 add_definitions(-D_XOPEN_SOURCE=700)
+add_definitions(-DUSE_LOCALE=1)
 add_definitions(-DPOWWOW_DIR="${CMAKE_INSTALL_PREFIX}/share/powwow")
 add_definitions(-DPLUGIN_DIR="${CMAKE_INSTALL_PREFIX}/lib/powwow")
 add_definitions(-DVERSION="${PROJECT_VERSION}")

@@ -10,16 +10,20 @@
  *
  */
 
-#include "defines.h"
-
-#ifdef USE_BSD_LIKE
-/* Needed for SIGWINCH on OpenBSD. */
-# define _BSD_SOURCE
-/* Needed for SIGWINCH on FreeBSD. */
-# define __BSD_VISIBLE
-/* Needed for SIGWINCH on Darwin. */
-# define _DARWIN_C_SOURCE 1
+#if defined(__APPLE__) || defined(__DARWIN__) || defined(USE_BSD_LIKE)
+#  ifndef _DARWIN_C_SOURCE
+#    define _DARWIN_C_SOURCE 1
+#  endif
+#  ifndef _BSD_SOURCE
+#    define _BSD_SOURCE
+#  endif
+#  ifndef __BSD_VISIBLE
+#    define __BSD_VISIBLE
+#  endif
 #endif
+
+#include <signal.h>
+#include "defines.h"
 
 #include <alloca.h>
 #include <stdio.h>
@@ -28,7 +32,6 @@
 #include <errno.h>
 #include <ctype.h>
 #include <unistd.h>
-#include <signal.h>
 #include <time.h>
 
 #include "main.h"

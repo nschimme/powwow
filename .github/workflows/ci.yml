@@ -52,7 +52,7 @@ jobs:
       - name: Configure CMake (Windows MSVC)
         if: runner.os == 'Windows'
         run: |
-          cmake -B build -G "Visual Studio 17 2022" -A x64 -DBUILD_GUI=ON
+          cmake -B build -DBUILD_GUI=ON
 
       - name: Build
         run: |
