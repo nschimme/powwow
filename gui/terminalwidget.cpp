@@ -8,6 +8,7 @@
 #include <QColor>
 #include <QFontDatabase>
 #include <QRegularExpression>
+#include <QProcessEnvironment>
 #include <QDebug>
 
 TerminalWidget::TerminalWidget(const SessionProfile &profile, QWidget *parent)
@@ -18,17 +19,18 @@ TerminalWidget::TerminalWidget(const SessionProfile &profile, QWidget *parent)
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(4, 4, 4, 4);
 
-    // Top control bar
+    // Top control bar (PuTTY disconnect button)
     QHBoxLayout *topLayout = new QHBoxLayout();
     m_disconnectButton = new QPushButton(tr("Disconnect"), this);
     topLayout->addStretch();
     topLayout->addWidget(m_disconnectButton);
     mainLayout->addLayout(topLayout);
 
-    // Terminal display area
+    // Terminal display area (Direct PuTTY interactive display)
     m_terminalDisplay = new QTextEdit(this);
     m_terminalDisplay->setReadOnly(true);
-    m_terminalDisplay->setStyleSheet("QTextEdit { background-color: #000000; color: #CCCCCC; }");
+    m_terminalDisplay->setFocusPolicy(Qt::StrongFocus);
+    m_terminalDisplay->setStyleSheet("QTextEdit { background-color: #000000; color: #CCCCCC; selection-background-color: #555555; }");
 
     // Set monospace font
     QFont font = QFontDatabase::systemFont(QFontDatabase::FixedFont);
@@ -37,23 +39,10 @@ TerminalWidget::TerminalWidget(const SessionProfile &profile, QWidget *parent)
     m_terminalDisplay->setFont(font);
     mainLayout->addWidget(m_terminalDisplay);
 
-    // Input layout
-    QHBoxLayout *inputLayout = new QHBoxLayout();
-    m_inputLine = new QLineEdit(this);
-    m_inputLine->setFont(font);
-    m_inputLine->setPlaceholderText(tr("Type command here..."));
-    m_sendButton = new QPushButton(tr("Send"), this);
-
-    inputLayout->addWidget(m_inputLine);
-    inputLayout->addWidget(m_sendButton);
-    mainLayout->addLayout(inputLayout);
-
-    // Filter events on input line for command history (Up/Down arrows)
-    m_inputLine->installEventFilter(this);
+    // Install event filter on terminal display to capture direct key presses (PuTTY style)
+    m_terminalDisplay->installEventFilter(this);
 
     // Connect signals
-    connect(m_sendButton, &QPushButton::clicked, this, &TerminalWidget::onSendInput);
-    connect(m_inputLine, &QLineEdit::returnPressed, this, &TerminalWidget::onSendInput);
     connect(m_disconnectButton, &QPushButton::clicked, this, &TerminalWidget::stopSession);
 
     connect(m_process, &QProcess::readyReadStandardOutput, this, &TerminalWidget::onProcessReadyRead);
@@ -84,6 +73,16 @@ void TerminalWidget::startSession()
         powwowBin = "powwow";
     }
 
+    // Configure environment variables (POWWOWEDITOR, POWWOWPAGER)
+    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+    if (!m_profile.editor.isEmpty()) {
+        env.insert("POWWOWEDITOR", m_profile.editor);
+    }
+    if (!m_profile.pager.isEmpty()) {
+        env.insert("POWWOWPAGER", m_profile.pager);
+    }
+    m_process->setProcessEnvironment(env);
+
     QStringList args;
 
     if (m_profile.useTls) {
@@ -107,7 +106,7 @@ void TerminalWidget::startSession()
     m_terminalDisplay->append(tr("=== Connecting (%1 %2) ===").arg(m_profile.host, QString::number(m_profile.port)));
 
     m_process->start(powwowBin, args);
-    m_inputLine->setFocus();
+    m_terminalDisplay->setFocus();
 }
 
 void TerminalWidget::stopSession()
@@ -121,28 +120,72 @@ void TerminalWidget::stopSession()
     emit sessionClosed();
 }
 
-void TerminalWidget::onSendInput()
+void TerminalWidget::sendKeyToProcess(QKeyEvent *keyEvent)
 {
-    QString text = m_inputLine->text();
-    if (text.isEmpty()) {
-        text = "";
+    if (!m_process || m_process->state() == QProcess::NotRunning) {
+        return;
     }
 
-    // Add to history
-    if (!text.isEmpty()) {
-        if (m_history.isEmpty() || m_history.last() != text) {
-            m_history.append(text);
+    QByteArray data;
+
+    // Control key combinations (Ctrl + A..Z)
+    if (keyEvent->modifiers() & Qt::ControlModifier) {
+        int key = keyEvent->key();
+        if (key >= Qt::Key_A && key <= Qt::Key_Z) {
+            char ctrlChar = static_cast<char>(key - Qt::Key_A + 1);
+            data.append(ctrlChar);
+            m_process->write(data);
+            return;
         }
     }
-    m_historyIndex = -1;
 
-    // Send to process
-    if (m_process && m_process->isOpen()) {
-        QByteArray encoded = (text + "\n").toUtf8();
-        m_process->write(encoded);
+    switch (keyEvent->key()) {
+    case Qt::Key_Return:
+    case Qt::Key_Enter:
+        data.append("\n");
+        break;
+    case Qt::Key_Backspace:
+        data.append("\x7f");
+        break;
+    case Qt::Key_Tab:
+        data.append("\t");
+        break;
+    case Qt::Key_Escape:
+        data.append("\x1b");
+        break;
+    case Qt::Key_Up:
+        data.append("\033[A");
+        break;
+    case Qt::Key_Down:
+        data.append("\033[B");
+        break;
+    case Qt::Key_Right:
+        data.append("\033[C");
+        break;
+    case Qt::Key_Left:
+        data.append("\033[D");
+        break;
+    default:
+        QString text = keyEvent->text();
+        if (!text.isEmpty()) {
+            data = text.toUtf8();
+        }
+        break;
     }
 
-    m_inputLine->clear();
+    if (!data.isEmpty()) {
+        m_process->write(data);
+    }
+}
+
+bool TerminalWidget::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched == m_terminalDisplay && event->type() == QEvent::KeyPress) {
+        QKeyEvent *keyEvent = static_cast<QKeyEvent *>(event);
+        sendKeyToProcess(keyEvent);
+        return true; // Consume key press
+    }
+    return QWidget::eventFilter(watched, event);
 }
 
 void TerminalWidget::onProcessReadyRead()
@@ -166,36 +209,6 @@ void TerminalWidget::onProcessError(QProcess::ProcessError error)
     if (error == QProcess::FailedToStart) {
         m_terminalDisplay->append(tr("\n[Error] Failed to start powwow executable. Make sure powwow is installed or in the same directory."));
     }
-}
-
-bool TerminalWidget::eventFilter(QObject *watched, QEvent *event)
-{
-    if (watched == m_inputLine && event->type() == QEvent::KeyPress) {
-        QKeyEvent *keyEvent = static_cast<QKeyEvent *>(event);
-        if (keyEvent->key() == Qt::Key_Up) {
-            if (!m_history.isEmpty()) {
-                if (m_historyIndex == -1) {
-                    m_historyIndex = m_history.size() - 1;
-                } else if (m_historyIndex > 0) {
-                    m_historyIndex--;
-                }
-                m_inputLine->setText(m_history.at(m_historyIndex));
-            }
-            return true;
-        } else if (keyEvent->key() == Qt::Key_Down) {
-            if (m_historyIndex != -1) {
-                if (m_historyIndex < m_history.size() - 1) {
-                    m_historyIndex++;
-                    m_inputLine->setText(m_history.at(m_historyIndex));
-                } else {
-                    m_historyIndex = -1;
-                    m_inputLine->clear();
-                }
-            }
-            return true;
-        }
-    }
-    return QWidget::eventFilter(watched, event);
 }
 
 void TerminalWidget::applyAnsiCode(int code, QTextCharFormat &format)

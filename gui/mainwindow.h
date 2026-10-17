@@ -22,6 +22,8 @@ public:
 private slots:
     void onSessionSelected(int index);
     void onBrowsePowFile();
+    void onBrowseEditor();
+    void onBrowsePager();
     void onSaveSession();
     void onDeleteSession();
     void onConnectSession();
@@ -44,6 +46,12 @@ private:
     QSpinBox *m_portSpinBox;
     QLineEdit *m_powFileEdit;
     QPushButton *m_browsePowButton;
+
+    QLineEdit *m_editorEdit;
+    QPushButton *m_browseEditorButton;
+    QLineEdit *m_pagerEdit;
+    QPushButton *m_browsePagerButton;
+
     QCheckBox *m_tlsCheckBox;
     QCheckBox *m_utf8CheckBox;
 

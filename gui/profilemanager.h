@@ -10,6 +10,8 @@ struct SessionProfile {
     QString host;
     int port = 23;
     QString powFilePath;
+    QString editor;
+    QString pager;
     bool useTls = false;
     bool useUtf8 = true;
 };

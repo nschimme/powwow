@@ -29,6 +29,8 @@ SessionProfile ProfileManager::loadSession(const QString &name) const
         profile.host = settings.value("host", "").toString();
         profile.port = settings.value("port", 23).toInt();
         profile.powFilePath = settings.value("powFilePath", "").toString();
+        profile.editor = settings.value("editor", "").toString();
+        profile.pager = settings.value("pager", "").toString();
         profile.useTls = settings.value("useTls", false).toBool();
         profile.useUtf8 = settings.value("useUtf8", true).toBool();
         settings.endGroup();
@@ -47,6 +49,8 @@ void ProfileManager::saveSession(const SessionProfile &profile)
     settings.setValue("host", profile.host);
     settings.setValue("port", profile.port);
     settings.setValue("powFilePath", profile.powFilePath);
+    settings.setValue("editor", profile.editor);
+    settings.setValue("pager", profile.pager);
     settings.setValue("useTls", profile.useTls);
     settings.setValue("useUtf8", profile.useUtf8);
     settings.endGroup();

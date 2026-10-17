@@ -13,7 +13,7 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
     setWindowTitle(tr("Powwow GUI Configuration & Launcher"));
-    resize(720, 480);
+    resize(760, 520);
 
     setupUi();
     refreshSessionList();
@@ -76,6 +76,24 @@ void MainWindow::setupUi()
     powFileLayout->addWidget(m_browsePowButton);
     formLayout->addRow(tr("Profile (.pow):"), powFileLayout);
 
+    // Editor (POWWOWEDITOR) picker
+    QHBoxLayout *editorLayout = new QHBoxLayout();
+    m_editorEdit = new QLineEdit(optionsGroupBox);
+    m_editorEdit->setPlaceholderText(tr("Editor program (e.g. vi, emacs, gedit)"));
+    m_browseEditorButton = new QPushButton(tr("Browse..."), optionsGroupBox);
+    editorLayout->addWidget(m_editorEdit);
+    editorLayout->addWidget(m_browseEditorButton);
+    formLayout->addRow(tr("Editor (POWWOWEDITOR):"), editorLayout);
+
+    // Pager (POWWOWPAGER) picker
+    QHBoxLayout *pagerLayout = new QHBoxLayout();
+    m_pagerEdit = new QLineEdit(optionsGroupBox);
+    m_pagerEdit->setPlaceholderText(tr("Pager/Viewer program (e.g. less, more)"));
+    m_browsePagerButton = new QPushButton(tr("Browse..."), optionsGroupBox);
+    pagerLayout->addWidget(m_pagerEdit);
+    pagerLayout->addWidget(m_browsePagerButton);
+    formLayout->addRow(tr("Pager (POWWOWPAGER):"), pagerLayout);
+
     m_tlsCheckBox = new QCheckBox(tr("Enable TLS Encryption"), optionsGroupBox);
     formLayout->addRow(tr("Security:"), m_tlsCheckBox);
 
@@ -109,6 +127,8 @@ void MainWindow::setupUi()
     // Connect signals
     connect(m_sessionListWidget, &QListWidget::currentRowChanged, this, &MainWindow::onSessionSelected);
     connect(m_browsePowButton, &QPushButton::clicked, this, &MainWindow::onBrowsePowFile);
+    connect(m_browseEditorButton, &QPushButton::clicked, this, &MainWindow::onBrowseEditor);
+    connect(m_browsePagerButton, &QPushButton::clicked, this, &MainWindow::onBrowsePager);
     connect(m_saveButton, &QPushButton::clicked, this, &MainWindow::onSaveSession);
     connect(m_deleteButton, &QPushButton::clicked, this, &MainWindow::onDeleteSession);
     connect(m_connectButton, &QPushButton::clicked, this, &MainWindow::onConnectSession);
@@ -135,6 +155,8 @@ void MainWindow::onSessionSelected(int index)
         m_hostEdit->clear();
         m_portSpinBox->setValue(23);
         m_powFileEdit->clear();
+        m_editorEdit->clear();
+        m_pagerEdit->clear();
         m_tlsCheckBox->setChecked(false);
         m_utf8CheckBox->setChecked(true);
     } else {
@@ -143,6 +165,8 @@ void MainWindow::onSessionSelected(int index)
         m_hostEdit->setText(profile.host);
         m_portSpinBox->setValue(profile.port);
         m_powFileEdit->setText(profile.powFilePath);
+        m_editorEdit->setText(profile.editor);
+        m_pagerEdit->setText(profile.pager);
         m_tlsCheckBox->setChecked(profile.useTls);
         m_utf8CheckBox->setChecked(profile.useUtf8);
     }
@@ -159,6 +183,28 @@ void MainWindow::onBrowsePowFile()
     }
 }
 
+void MainWindow::onBrowseEditor()
+{
+    QString filePath = QFileDialog::getOpenFileName(this,
+        tr("Select Editor Executable"),
+        QString(),
+        tr("Executables (*);;All Files (*)"));
+    if (!filePath.isEmpty()) {
+        m_editorEdit->setText(filePath);
+    }
+}
+
+void MainWindow::onBrowsePager()
+{
+    QString filePath = QFileDialog::getOpenFileName(this,
+        tr("Select Pager Executable"),
+        QString(),
+        tr("Executables (*);;All Files (*)"));
+    if (!filePath.isEmpty()) {
+        m_pagerEdit->setText(filePath);
+    }
+}
+
 SessionProfile MainWindow::currentProfileFromUi() const
 {
     SessionProfile profile;
@@ -166,6 +212,8 @@ SessionProfile MainWindow::currentProfileFromUi() const
     profile.host = m_hostEdit->text().trimmed();
     profile.port = m_portSpinBox->value();
     profile.powFilePath = m_powFileEdit->text().trimmed();
+    profile.editor = m_editorEdit->text().trimmed();
+    profile.pager = m_pagerEdit->text().trimmed();
     profile.useTls = m_tlsCheckBox->isChecked();
     profile.useUtf8 = m_utf8CheckBox->isChecked();
     return profile;

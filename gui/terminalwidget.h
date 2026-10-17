@@ -3,13 +3,11 @@
 
 #include <QWidget>
 #include <QTextEdit>
-#include <QLineEdit>
 #include <QPushButton>
 #include <QProcess>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QTextCharFormat>
-#include <QStringList>
 
 #include "profilemanager.h"
 
@@ -26,7 +24,6 @@ signals:
     void sessionClosed();
 
 private slots:
-    void onSendInput();
     void onProcessReadyRead();
     void onProcessFinished(int exitCode, QProcess::ExitStatus exitStatus);
     void onProcessError(QProcess::ProcessError error);
@@ -37,16 +34,12 @@ protected:
 private:
     void appendAnsiText(const QString &text);
     void applyAnsiCode(int code, QTextCharFormat &format);
+    void sendKeyToProcess(QKeyEvent *keyEvent);
 
     SessionProfile m_profile;
     QTextEdit *m_terminalDisplay;
-    QLineEdit *m_inputLine;
-    QPushButton *m_sendButton;
     QPushButton *m_disconnectButton;
     QProcess *m_process;
-
-    QStringList m_history;
-    int m_historyIndex = -1;
 
     QTextCharFormat m_currentFormat;
 };
