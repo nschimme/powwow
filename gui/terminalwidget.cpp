@@ -6,6 +6,7 @@
 #include <QKeyEvent>
 #include <QScrollBar>
 #include <QTextCursor>
+#include <QTextBlock>
 #include <QColor>
 #include <QFontDatabase>
 #include <QFontMetrics>
@@ -370,7 +371,8 @@ void TerminalWidget::appendAnsiText(const QString &text)
     int pos = 0;
     int len = text.length();
 
-    static const QRegularExpression ansiRegex("\033\\[([0-9;]*)m");
+    // Match all CSI ANSI sequences \033[ ... <letter>
+    static const QRegularExpression ansiRegex("\033\\[([0-9;]*)([a-zA-Z])");
 
     while (pos < len) {
         QRegularExpressionMatch match = ansiRegex.match(text, pos);
@@ -385,7 +387,8 @@ void TerminalWidget::appendAnsiText(const QString &text)
                     cursor.deletePreviousChar();
                 }
             } else if (ch == '\r') {
-                // Ignore bare carriage returns
+                // Carriage Return: move cursor to beginning of current block to allow overwriting prompt/status
+                cursor.movePosition(QTextCursor::StartOfBlock);
             } else {
                 cursor.insertText(QString(ch), m_currentFormat);
             }
@@ -393,42 +396,85 @@ void TerminalWidget::appendAnsiText(const QString &text)
         }
 
         if (match.hasMatch()) {
-            // Parse SGR codes in match
             QString codeStr = match.captured(1);
-            if (codeStr.isEmpty()) {
-                applyAnsiCode(0, m_currentFormat);
-            } else {
-                const QStringList codes = codeStr.split(';');
-                for (int i = 0; i < codes.size(); ++i) {
-                    int code = codes.at(i).toInt();
-                    // 256-color support (38;5;n or 48;5;n)
-                    if ((code == 38 || code == 48) && i + 2 < codes.size() && codes.at(i + 1).toInt() == 5) {
-                        int colorIdx = codes.at(i + 2).toInt();
-                        QColor c = colorFrom256Index(colorIdx);
-                        if (code == 38) {
-                            m_currentFormat.setForeground(c);
-                        } else {
-                            m_currentFormat.setBackground(c);
+            QString cmd = match.captured(2);
+
+            if (cmd == "m") {
+                // SGR formatting & colors
+                if (codeStr.isEmpty()) {
+                    applyAnsiCode(0, m_currentFormat);
+                } else {
+                    const QStringList codes = codeStr.split(';');
+                    for (int i = 0; i < codes.size(); ++i) {
+                        int code = codes.at(i).toInt();
+                        // 256-color support (38;5;n or 48;5;n)
+                        if ((code == 38 || code == 48) && i + 2 < codes.size() && codes.at(i + 1).toInt() == 5) {
+                            int colorIdx = codes.at(i + 2).toInt();
+                            QColor c = colorFrom256Index(colorIdx);
+                            if (code == 38) {
+                                m_currentFormat.setForeground(c);
+                            } else {
+                                m_currentFormat.setBackground(c);
+                            }
+                            i += 2;
                         }
-                        i += 2;
-                    }
-                    // TrueColor 24-bit support (38;2;r;g;b or 48;2;r;g;b)
-                    else if ((code == 38 || code == 48) && i + 4 < codes.size() && codes.at(i + 1).toInt() == 2) {
-                        int r = codes.at(i + 2).toInt();
-                        int g = codes.at(i + 3).toInt();
-                        int b = codes.at(i + 4).toInt();
-                        QColor c(r, g, b);
-                        if (code == 38) {
-                            m_currentFormat.setForeground(c);
+                        // TrueColor 24-bit support (38;2;r;g;b or 48;2;r;g;b)
+                        else if ((code == 38 || code == 48) && i + 4 < codes.size() && codes.at(i + 1).toInt() == 2) {
+                            int r = codes.at(i + 2).toInt();
+                            int g = codes.at(i + 3).toInt();
+                            int b = codes.at(i + 4).toInt();
+                            QColor c(r, g, b);
+                            if (code == 38) {
+                                m_currentFormat.setForeground(c);
+                            } else {
+                                m_currentFormat.setBackground(c);
+                            }
+                            i += 4;
                         } else {
-                            m_currentFormat.setBackground(c);
+                            applyAnsiCode(code, m_currentFormat);
                         }
-                        i += 4;
-                    } else {
-                        applyAnsiCode(code, m_currentFormat);
                     }
                 }
+            } else if (cmd == "J") {
+                // Clear screen / display
+                int p = codeStr.toInt();
+                if (p == 2 || p == 0) {
+                    m_terminalDisplay->clear();
+                    cursor = m_terminalDisplay->textCursor();
+                }
+            } else if (cmd == "K") {
+                // Clear to end of line
+                cursor.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
+                cursor.removeSelectedText();
+            } else if (cmd == "H" || cmd == "f") {
+                // Cursor position \033[<line>;<col>H
+                const QStringList params = codeStr.split(';');
+                int line = params.size() > 0 ? qMax(1, params.at(0).toInt()) : 1;
+                int col = params.size() > 1 ? qMax(1, params.at(1).toInt()) : 1;
+
+                QTextBlock block = m_terminalDisplay->document()->findBlockByLineNumber(line - 1);
+                if (block.isValid()) {
+                    int p = block.position() + qMin(col - 1, block.length() - 1);
+                    cursor.setPosition(p);
+                }
+            } else if (cmd == "A") {
+                // Cursor Up
+                int count = qMax(1, codeStr.toInt());
+                cursor.movePosition(QTextCursor::Up, QTextCursor::MoveAnchor, count);
+            } else if (cmd == "B") {
+                // Cursor Down
+                int count = qMax(1, codeStr.toInt());
+                cursor.movePosition(QTextCursor::Down, QTextCursor::MoveAnchor, count);
+            } else if (cmd == "C") {
+                // Cursor Right
+                int count = qMax(1, codeStr.toInt());
+                cursor.movePosition(QTextCursor::Right, QTextCursor::MoveAnchor, count);
+            } else if (cmd == "D") {
+                // Cursor Left
+                int count = qMax(1, codeStr.toInt());
+                cursor.movePosition(QTextCursor::Left, QTextCursor::MoveAnchor, count);
             }
+
             pos = matchStart + match.capturedLength();
         }
     }

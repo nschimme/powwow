@@ -62,3 +62,26 @@ jobs:
         if: runner.os != 'Windows'
         run: |
           ctest --test-dir build --build-config Release --output-on-failure
+
+      - name: Upload Build Artifacts (Linux / macOS)
+        if: runner.os != 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: powwow-${{ matrix.os }}
+          path: |
+            build/powwow
+            build/powwow-gui
+            build/powwow-muc
+            build/powwow-movieplay
+          if-no-files-found: ignore
+
+      - name: Upload Build Artifacts (Windows MSVC)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: powwow-${{ matrix.os }}
+          path: |
+            build/Release/powwow-gui.exe
+            build/Release/*.exe
+            build/*.exe
+          if-no-files-found: ignore

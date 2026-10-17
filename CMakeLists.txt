@@ -51,7 +51,7 @@ if(ENABLE_TLS AND UNIX)
     endif()
 endif()
 
-# C source files for powwow CLI (Unix/POSIX)
+# C source files for POSIX powwow CLI (Linux/macOS)
 if(NOT WIN32)
     find_package(Curses QUIET)
     set(POWWOW_C_SOURCES
@@ -75,6 +75,7 @@ if(NOT WIN32)
     )
 
     add_executable(powwow ${POWWOW_C_SOURCES})
+
     if(CURSES_FOUND)
         target_link_libraries(powwow PRIVATE ${CURSES_LIBRARIES})
     else()
@@ -114,7 +115,7 @@ if(NOT WIN32)
     add_test(NAME test_sgr COMMAND test_sgr)
 endif()
 
-# Qt6 GUI Application
+# Qt6 GUI Application (Ubuntu, macOS, Windows MSVC)
 if(BUILD_GUI)
     find_package(Qt6 COMPONENTS Core Widgets Network QUIET)
     if(Qt6_FOUND)
