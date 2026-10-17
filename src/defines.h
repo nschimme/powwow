@@ -5,7 +5,13 @@
 #ifndef _DEFINES_H_
 #define _DEFINES_H_
 
-#include "../config.h"
+#ifdef HAVE_CONFIG_H
+#  include "config.h"
+#elif defined(__has_include)
+#  if __has_include("../config.h")
+#    include "../config.h"
+#  endif
+#endif
 
 #include <stdbool.h>
 

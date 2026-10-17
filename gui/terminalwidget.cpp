@@ -260,17 +260,25 @@ void TerminalWidget::appendAnsiText(const QString &text)
 
     while (pos < len) {
         QRegularExpressionMatch match = ansiRegex.match(text, pos);
-        if (match.hasMatch()) {
-            int matchStart = match.capturedStart();
+        int matchStart = match.hasMatch() ? match.capturedStart() : len;
 
-            // Append plain text before escape code
-            if (matchStart > pos) {
-                QString plainText = text.mid(pos, matchStart - pos);
-                // Strip out remaining control chars like \r
-                plainText.remove('\r');
-                cursor.insertText(plainText, m_currentFormat);
+        // Process plain text chunk up to matchStart
+        while (pos < matchStart) {
+            QChar ch = text.at(pos);
+            if (ch == '\b') {
+                // Backspace ("twiddler" / overwrite character)
+                if (!cursor.atStart()) {
+                    cursor.deletePreviousChar();
+                }
+            } else if (ch == '\r') {
+                // Ignore bare carriage returns
+            } else {
+                cursor.insertText(QString(ch), m_currentFormat);
             }
+            pos++;
+        }
 
+        if (match.hasMatch()) {
             // Parse SGR codes in match
             QString codeStr = match.captured(1);
             if (codeStr.isEmpty()) {
@@ -285,14 +293,7 @@ void TerminalWidget::appendAnsiText(const QString &text)
                     }
                 }
             }
-
             pos = matchStart + match.capturedLength();
-        } else {
-            // Append remaining text
-            QString plainText = text.mid(pos);
-            plainText.remove('\r');
-            cursor.insertText(plainText, m_currentFormat);
-            break;
         }
     }
 
