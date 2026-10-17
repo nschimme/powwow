@@ -49,7 +49,13 @@
  * many warnings, but seems to be necessary at times. works anyway.
  */
 #    include <termios.h>
-#    include <termio.h>
+#    if defined(__has_include)
+#      if __has_include(<termio.h>)
+#        include <termio.h>
+#      endif
+#    elif !defined(__APPLE__) && !defined(__FreeBSD__) && !defined(__OpenBSD__) && !defined(__NetBSD__)
+#      include <termio.h>
+#    endif
 #  endif
 /* #else USE_SGTTY */
 #endif
