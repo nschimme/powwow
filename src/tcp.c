@@ -10,7 +10,11 @@
  *
  */
 
-#include <alloca.h>
+#if defined(__has_include)
+#  if __has_include(<alloca.h>)
+#    include <alloca.h>
+#  endif
+#endif
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>

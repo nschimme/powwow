@@ -25,7 +25,11 @@
 #include <signal.h>
 #include "defines.h"
 
-#include <alloca.h>
+#if defined(__has_include)
+#  if __has_include(<alloca.h>)
+#    include <alloca.h>
+#  endif
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

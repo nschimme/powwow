@@ -9,7 +9,11 @@
  *  (at your option) any later version.
  *
  */
-#include <alloca.h>
+#if defined(__has_include)
+#  if __has_include(<alloca.h>)
+#    include <alloca.h>
+#  endif
+#endif
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
