@@ -52,7 +52,7 @@ jobs:
       - name: Configure CMake (Windows MSVC)
         if: runner.os == 'Windows'
         run: |
-          cmake -B build -DBUILD_GUI=ON
+          cmake -B build -DBUILD_GUI=ON -DBUILD_SHARED_LIBS=OFF
 
       - name: Build
         run: |
@@ -63,25 +63,51 @@ jobs:
         run: |
           ctest --test-dir build --build-config Release --output-on-failure
 
-      - name: Upload Build Artifacts (Linux / macOS)
-        if: runner.os != 'Windows'
-        uses: actions/upload-artifact@v4
-        with:
-          name: powwow-${{ matrix.os }}
-          path: |
-            build/powwow
-            build/powwow-gui
-            build/powwow-muc
-            build/powwow-movieplay
-          if-no-files-found: ignore
+      - name: Package Artifact (Windows MSVC)
+        if: runner.os == 'Windows'
+        run: |
+          New-Item -ItemType Directory -Path "powwow-windows" -Force
+          if (Test-Path "build\Release\powwow-gui.exe") {
+            Copy-Item "build\Release\powwow-gui.exe" "powwow-windows\"
+          } elseif (Test-Path "build\powwow-gui.exe") {
+            Copy-Item "build\powwow-gui.exe" "powwow-windows\"
+          }
+          if (Test-Path "build\Release\powwow.exe") {
+            Copy-Item "build\Release\powwow.exe" "powwow-windows\"
+          } elseif (Test-Path "build\powwow.exe") {
+            Copy-Item "build\powwow.exe" "powwow-windows\"
+          }
+          windeployqt --release powwow-windows\powwow-gui.exe 2>$null
+          Compress-Archive -Path "powwow-windows\*" -DestinationPath "powwow-gui-windows.zip"
 
-      - name: Upload Build Artifacts (Windows MSVC)
+      - name: Package Artifact (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          $(brew --prefix qt@6)/bin/macdeployqt build/powwow-gui.app -always-overwrite 2>/dev/null || true
+          zip -r powwow-gui-macos.zip build/powwow-gui.app build/powwow 2>/dev/null || zip -r powwow-gui-macos.zip build/powwow-gui.app
+
+      - name: Package Artifact (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          tar -czvf powwow-gui-ubuntu.tar.gz -C build powwow-gui powwow
+
+      - name: Upload Windows Archive
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4
         with:
-          name: powwow-${{ matrix.os }}
-          path: |
-            build/Release/powwow-gui.exe
-            build/Release/*.exe
-            build/*.exe
-          if-no-files-found: ignore
+          name: powwow-gui-windows.zip
+          path: powwow-gui-windows.zip
+
+      - name: Upload macOS Zip Package
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: powwow-gui-macos.zip
+          path: powwow-gui-macos.zip
+
+      - name: Upload Ubuntu Archive
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: powwow-gui-ubuntu.tar.gz
+          path: powwow-gui-ubuntu.tar.gz

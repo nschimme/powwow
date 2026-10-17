@@ -365,6 +365,7 @@ void TerminalWidget::applyAnsiCode(int code, QTextCharFormat &format)
 
 void TerminalWidget::appendAnsiText(const QString &text)
 {
+    // Always move write cursor to the end of text document before appending new output
     QTextCursor cursor = m_terminalDisplay->textCursor();
     cursor.movePosition(QTextCursor::End);
 
@@ -383,12 +384,23 @@ void TerminalWidget::appendAnsiText(const QString &text)
             QChar ch = text.at(pos);
             if (ch == '\b') {
                 // Backspace ("twiddler" / overwrite character)
-                if (!cursor.atStart()) {
+                // Only delete character within current line/block
+                if (cursor.positionInBlock() > 0) {
                     cursor.deletePreviousChar();
                 }
             } else if (ch == '\r') {
-                // Carriage Return: move cursor to beginning of current block to allow overwriting prompt/status
-                cursor.movePosition(QTextCursor::StartOfBlock);
+                // Check if followed by \n (standard \r\n newline)
+                if (pos + 1 < matchStart && text.at(pos + 1) == '\n') {
+                    pos++;
+                    cursor.movePosition(QTextCursor::End);
+                    cursor.insertText("\n", m_currentFormat);
+                } else {
+                    // Bare Carriage Return: move cursor to start of block for prompt/status overwrite
+                    cursor.movePosition(QTextCursor::StartOfBlock);
+                }
+            } else if (ch == '\n') {
+                cursor.movePosition(QTextCursor::End);
+                cursor.insertText("\n", m_currentFormat);
             } else {
                 cursor.insertText(QString(ch), m_currentFormat);
             }
