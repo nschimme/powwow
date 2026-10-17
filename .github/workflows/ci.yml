@@ -65,6 +65,7 @@ jobs:
 
       - name: Package Artifact (Windows MSVC)
         if: runner.os == 'Windows'
+        shell: powershell
         run: |
           New-Item -ItemType Directory -Path "powwow-windows" -Force
           if (Test-Path "build\Release\powwow-gui.exe") {
@@ -72,24 +73,29 @@ jobs:
           } elseif (Test-Path "build\powwow-gui.exe") {
             Copy-Item "build\powwow-gui.exe" "powwow-windows\"
           }
-          if (Test-Path "build\Release\powwow.exe") {
-            Copy-Item "build\Release\powwow.exe" "powwow-windows\"
-          } elseif (Test-Path "build\powwow.exe") {
-            Copy-Item "build\powwow.exe" "powwow-windows\"
+          if (Get-Command windeployqt -ErrorAction SilentlyContinue) {
+            windeployqt --release powwow-windows\powwow-gui.exe
           }
-          windeployqt --release powwow-windows\powwow-gui.exe 2>$null
-          Compress-Archive -Path "powwow-windows\*" -DestinationPath "powwow-gui-windows.zip"
+          Compress-Archive -Path "powwow-windows\*" -DestinationPath "powwow-gui-windows.zip" -Force
 
       - name: Package Artifact (macOS)
         if: runner.os == 'macOS'
         run: |
-          $(brew --prefix qt@6)/bin/macdeployqt build/powwow-gui.app -always-overwrite 2>/dev/null || true
-          zip -r powwow-gui-macos.zip build/powwow-gui.app build/powwow 2>/dev/null || zip -r powwow-gui-macos.zip build/powwow-gui.app
+          if [ -d "build/powwow-gui.app" ]; then
+            $(brew --prefix qt@6)/bin/macdeployqt build/powwow-gui.app -always-overwrite || true
+            zip -r powwow-gui-macos.zip build/powwow-gui.app
+          else
+            zip -r powwow-gui-macos.zip build/powwow
+          fi
 
       - name: Package Artifact (Ubuntu)
         if: runner.os == 'Linux'
         run: |
-          tar -czvf powwow-gui-ubuntu.tar.gz -C build powwow-gui powwow
+          if [ -f "build/powwow-gui" ]; then
+            tar -czvf powwow-gui-ubuntu.tar.gz -C build powwow-gui powwow
+          else
+            tar -czvf powwow-gui-ubuntu.tar.gz -C build powwow
+          fi
 
       - name: Upload Windows Archive
         if: runner.os == 'Windows'
