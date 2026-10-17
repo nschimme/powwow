@@ -47,6 +47,31 @@ static QString extractEmbeddedPowwow()
     return QString();
 }
 
+static QColor colorFrom256Index(int index)
+{
+    static const QColor baseColors[16] = {
+        QColor("#000000"), QColor("#CD0000"), QColor("#00CD00"), QColor("#CDCD00"),
+        QColor("#0000EE"), QColor("#CD00CD"), QColor("#00CDCD"), QColor("#E5E5E5"),
+        QColor("#7F7F7F"), QColor("#FF0000"), QColor("#00FF00"), QColor("#FFFF00"),
+        QColor("#5C5CFF"), QColor("#FF00FF"), QColor("#00FFFF"), QColor("#FFFFFF")
+    };
+
+    if (index >= 0 && index < 16) {
+        return baseColors[index];
+    } else if (index >= 16 && index <= 231) {
+        int idx = index - 16;
+        int r = (idx / 36);
+        int g = (idx % 36) / 6;
+        int b = (idx % 6);
+        static const int valMap[6] = { 0, 95, 135, 175, 215, 255 };
+        return QColor(valMap[r], valMap[g], valMap[b]);
+    } else if (index >= 232 && index <= 255) {
+        int gray = 8 + (index - 232) * 10;
+        return QColor(gray, gray, gray);
+    }
+    return QColor("#CCCCCC");
+}
+
 TerminalWidget::TerminalWidget(const SessionProfile &profile, QWidget *parent)
     : QWidget(parent)
     , m_profile(profile)
@@ -305,14 +330,24 @@ void TerminalWidget::applyAnsiCode(int code, QTextCharFormat &format)
         format.setForeground(QColor("#CCCCCC"));
         format.setBackground(QColor("#000000"));
         format.setFontWeight(QFont::Normal);
+        format.setFontUnderline(false);
     } else if (code == 1) {
-        // Bold
+        // Bold / High intensity
         format.setFontWeight(QFont::Bold);
+    } else if (code == 4) {
+        // Underline
+        format.setFontUnderline(true);
+    } else if (code == 7) {
+        // Reverse / Inverse video
+        QColor fg = format.foreground().color();
+        QColor bg = format.background().color();
+        format.setForeground(bg);
+        format.setBackground(fg);
     } else if (code >= 30 && code <= 37) {
-        // Foreground color
+        // Standard Foreground color
         format.setForeground(ansiColors[code - 30]);
     } else if (code >= 40 && code <= 47) {
-        // Background color
+        // Standard Background color
         format.setBackground(ansiColors[code - 40]);
     } else if (code >= 90 && code <= 97) {
         // Bright Foreground color
@@ -364,10 +399,32 @@ void TerminalWidget::appendAnsiText(const QString &text)
                 applyAnsiCode(0, m_currentFormat);
             } else {
                 const QStringList codes = codeStr.split(';');
-                for (const QString &c : codes) {
-                    bool ok = false;
-                    int code = c.toInt(&ok);
-                    if (ok) {
+                for (int i = 0; i < codes.size(); ++i) {
+                    int code = codes.at(i).toInt();
+                    // 256-color support (38;5;n or 48;5;n)
+                    if ((code == 38 || code == 48) && i + 2 < codes.size() && codes.at(i + 1).toInt() == 5) {
+                        int colorIdx = codes.at(i + 2).toInt();
+                        QColor c = colorFrom256Index(colorIdx);
+                        if (code == 38) {
+                            m_currentFormat.setForeground(c);
+                        } else {
+                            m_currentFormat.setBackground(c);
+                        }
+                        i += 2;
+                    }
+                    // TrueColor 24-bit support (38;2;r;g;b or 48;2;r;g;b)
+                    else if ((code == 38 || code == 48) && i + 4 < codes.size() && codes.at(i + 1).toInt() == 2) {
+                        int r = codes.at(i + 2).toInt();
+                        int g = codes.at(i + 3).toInt();
+                        int b = codes.at(i + 4).toInt();
+                        QColor c(r, g, b);
+                        if (code == 38) {
+                            m_currentFormat.setForeground(c);
+                        } else {
+                            m_currentFormat.setBackground(c);
+                        }
+                        i += 4;
+                    } else {
                         applyAnsiCode(code, m_currentFormat);
                     }
                 }
