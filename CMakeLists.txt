@@ -15,6 +15,10 @@ if(APPLE)
     link_directories(/opt/homebrew/lib /usr/local/lib)
 endif()
 
+if(WIN32 AND MINGW)
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static -static-libgcc -static-libstdc++")
+endif()
+
 include_directories("${CMAKE_BINARY_DIR}" "${CMAKE_SOURCE_DIR}" "${CMAKE_SOURCE_DIR}/src")
 
 # Options
@@ -35,7 +39,7 @@ elseif(APPLE)
     add_definitions(-DUSE_BSD_LIKE=1)
 endif()
 
-if(UNIX)
+if(UNIX OR MINGW)
     add_definitions(-DHAVE_GETOPT_LONG=1)
     add_definitions(-DUSE_REGEXP=1)
     add_definitions(-DUSE_SHELL=1)
@@ -47,7 +51,7 @@ if(UNIX)
     add_definitions(-DHAVE_SYS_TYPES_H=1)
 endif()
 
-if(ENABLE_TLS AND UNIX)
+if(ENABLE_TLS AND (UNIX OR MINGW))
     find_package(PkgConfig QUIET)
     if(PkgConfig_FOUND)
         pkg_check_modules(GNUTLS gnutls)

@@ -61,7 +61,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: msys2 {0}
         run: |
-          cmake -B build -G "Ninja" -DBUILD_GUI=ON -DCMAKE_BUILD_TYPE=Release
+          cmake -B build -G "Ninja" -DBUILD_GUI=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXE_LINKER_FLAGS="-static -static-libgcc -static-libstdc++"
 
       - name: Build (Windows MinGW64)
         if: runner.os == 'Windows'
