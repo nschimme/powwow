@@ -39,7 +39,7 @@ elseif(APPLE)
     add_definitions(-DUSE_BSD_LIKE=1)
 endif()
 
-if(UNIX OR MINGW)
+if(UNIX)
     add_definitions(-DHAVE_GETOPT_LONG=1)
     add_definitions(-DUSE_REGEXP=1)
     add_definitions(-DUSE_SHELL=1)
@@ -51,7 +51,7 @@ if(UNIX OR MINGW)
     add_definitions(-DHAVE_SYS_TYPES_H=1)
 endif()
 
-if(ENABLE_TLS AND (UNIX OR MINGW))
+if(ENABLE_TLS AND UNIX)
     find_package(PkgConfig QUIET)
     if(PkgConfig_FOUND)
         pkg_check_modules(GNUTLS gnutls)
@@ -71,8 +71,8 @@ if(ENABLE_TLS AND (UNIX OR MINGW))
     endif()
 endif()
 
-# C source files for POSIX/MinGW powwow CLI
-if(NOT MSVC)
+# C source files for POSIX powwow CLI (Linux/macOS)
+if(NOT WIN32)
     find_package(Curses QUIET)
     set(POWWOW_C_SOURCES
         src/beam.c
@@ -113,10 +113,6 @@ if(NOT MSVC)
         add_definitions(-DHAVE_LIBDL=1)
     endif()
 
-    if(WIN32)
-        target_link_libraries(powwow PRIVATE ws2_32)
-    endif()
-
     # powwow utilities
     add_executable(powwow-muc src/powwow-muc.c)
     add_executable(powwow-movieplay src/powwow-movieplay.c)
@@ -129,11 +125,6 @@ if(NOT MSVC)
     else()
         target_link_libraries(powwow-muc PRIVATE ncurses)
         target_link_libraries(powwow-movieplay PRIVATE ncurses)
-    endif()
-
-    if(WIN32)
-        target_link_libraries(powwow-muc PRIVATE ws2_32)
-        target_link_libraries(powwow-movieplay PRIVATE ws2_32)
     endif()
 
     # Tests
