@@ -5,7 +5,7 @@ int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
     app.setApplicationName("powwow-gui");
-    app.setOrganizationName("powwow");
+    app.setOrganizationName("mume");
 
     MainWindow w;
     w.show();

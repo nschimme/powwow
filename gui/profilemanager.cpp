@@ -1,4 +1,8 @@
 #include "profilemanager.h"
+#include <QStandardPaths>
+#include <QDir>
+#include <QFile>
+#include <QTextStream>
 
 QString defaultPlatformEditor()
 {
@@ -22,13 +26,41 @@ QString defaultPlatformPager()
 #endif
 }
 
+QString profileDirectoryPath()
+{
+    QString docsPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
+    if (docsPath.isEmpty()) {
+        docsPath = QDir::homePath();
+    }
+    QString profileDir = docsPath + "/mume";
+    QDir().mkpath(profileDir);
+    return profileDir;
+}
+
+QString defaultPowFilePath()
+{
+    QString dir = profileDirectoryPath();
+    QString filePath = dir + "/default.pow";
+
+    if (!QFile::exists(filePath)) {
+        QFile file(filePath);
+        if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream out(&file);
+            out << "# Powwow definition file for MUME\n";
+            out << "#host mume.org 4242\n";
+            file.close();
+        }
+    }
+    return filePath;
+}
+
 ProfileManager::ProfileManager()
 {
 }
 
 QStringList ProfileManager::sessionNames() const
 {
-    QSettings settings("powwow", "powwow-gui");
+    QSettings settings("mume", "powwow-gui");
     QStringList names;
     const auto childGroups = settings.childGroups();
     for (const QString &group : childGroups) {
@@ -41,16 +73,16 @@ QStringList ProfileManager::sessionNames() const
 
 SessionProfile ProfileManager::loadSession(const QString &name) const
 {
-    QSettings settings("powwow", "powwow-gui");
+    QSettings settings("mume", "powwow-gui");
     SessionProfile profile;
     profile.name = name;
     QString groupKey = QString("session_%1").arg(name);
 
     if (settings.childGroups().contains(groupKey)) {
         settings.beginGroup(groupKey);
-        profile.host = settings.value("host", "").toString();
-        profile.port = settings.value("port", 23).toInt();
-        profile.powFilePath = settings.value("powFilePath", "").toString();
+        profile.host = settings.value("host", "mume.org").toString();
+        profile.port = settings.value("port", 4242).toInt();
+        profile.powFilePath = settings.value("powFilePath", defaultPowFilePath()).toString();
         profile.editor = settings.value("editor", defaultPlatformEditor()).toString();
         profile.pager = settings.value("pager", defaultPlatformPager()).toString();
         profile.scrollbackLines = settings.value("scrollbackLines", 5000).toInt();
@@ -66,7 +98,7 @@ void ProfileManager::saveSession(const SessionProfile &profile)
     if (profile.name.trimmed().isEmpty()) {
         return;
     }
-    QSettings settings("powwow", "powwow-gui");
+    QSettings settings("mume", "powwow-gui");
     QString groupKey = QString("session_%1").arg(profile.name.trimmed());
     settings.beginGroup(groupKey);
     settings.setValue("host", profile.host);
@@ -83,7 +115,7 @@ void ProfileManager::saveSession(const SessionProfile &profile)
 
 void ProfileManager::deleteSession(const QString &name)
 {
-    QSettings settings("powwow", "powwow-gui");
+    QSettings settings("mume", "powwow-gui");
     QString groupKey = QString("session_%1").arg(name);
     settings.remove(groupKey);
     settings.sync();

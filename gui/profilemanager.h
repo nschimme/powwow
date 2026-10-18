@@ -7,12 +7,14 @@
 
 QString defaultPlatformEditor();
 QString defaultPlatformPager();
+QString profileDirectoryPath();
+QString defaultPowFilePath();
 
 struct SessionProfile {
     QString name;
-    QString host;
-    int port = 23;
-    QString powFilePath;
+    QString host = "mume.org";
+    int port = 4242;
+    QString powFilePath = defaultPowFilePath();
     QString editor = defaultPlatformEditor();
     QString pager = defaultPlatformPager();
     int scrollbackLines = 5000;

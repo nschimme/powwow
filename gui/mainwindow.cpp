@@ -12,7 +12,7 @@
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
-    setWindowTitle(tr("Powwow GUI Configuration & Launcher"));
+    setWindowTitle(tr("MUME Powwow Launcher"));
     resize(780, 560);
 
     setupUi();
@@ -59,18 +59,20 @@ void MainWindow::setupUi()
     formLayout->addRow(tr("Session Name:"), m_sessionNameEdit);
 
     m_hostEdit = new QLineEdit(optionsGroupBox);
-    m_hostEdit->setPlaceholderText(tr("e.g. mume.org"));
+    m_hostEdit->setText("mume.org");
+    m_hostEdit->setPlaceholderText(tr("mume.org"));
     formLayout->addRow(tr("Host Name (or IP):"), m_hostEdit);
 
     m_portSpinBox = new QSpinBox(optionsGroupBox);
     m_portSpinBox->setRange(1, 65535);
-    m_portSpinBox->setValue(23);
+    m_portSpinBox->setValue(4242);
     formLayout->addRow(tr("Port:"), m_portSpinBox);
 
     // Profile (.pow file) path picker
     QHBoxLayout *powFileLayout = new QHBoxLayout();
     m_powFileEdit = new QLineEdit(optionsGroupBox);
-    m_powFileEdit->setPlaceholderText(tr("Path to .pow profile file (optional)"));
+    m_powFileEdit->setText(defaultPowFilePath());
+    m_powFileEdit->setPlaceholderText(tr("Path to .pow profile file"));
     m_browsePowButton = new QPushButton(tr("Browse..."), optionsGroupBox);
     powFileLayout->addWidget(m_powFileEdit);
     powFileLayout->addWidget(m_browsePowButton);
@@ -79,6 +81,7 @@ void MainWindow::setupUi()
     // Editor (POWWOWEDITOR) picker with platform default placeholder
     QHBoxLayout *editorLayout = new QHBoxLayout();
     m_editorEdit = new QLineEdit(optionsGroupBox);
+    m_editorEdit->setText(defaultPlatformEditor());
     m_editorEdit->setPlaceholderText(tr("Default (%1)").arg(defaultPlatformEditor()));
     m_browseEditorButton = new QPushButton(tr("Browse..."), optionsGroupBox);
     editorLayout->addWidget(m_editorEdit);
@@ -88,6 +91,7 @@ void MainWindow::setupUi()
     // Pager (POWWOWPAGER) picker with platform default placeholder
     QHBoxLayout *pagerLayout = new QHBoxLayout();
     m_pagerEdit = new QLineEdit(optionsGroupBox);
+    m_pagerEdit->setText(defaultPlatformPager());
     m_pagerEdit->setPlaceholderText(tr("Default (%1)").arg(defaultPlatformPager()));
     m_browsePagerButton = new QPushButton(tr("Browse..."), optionsGroupBox);
     pagerLayout->addWidget(m_pagerEdit);
@@ -159,9 +163,9 @@ void MainWindow::onSessionSelected(int index)
     QString sessionName = m_sessionListWidget->item(index)->text();
     if (sessionName == tr("Default Settings")) {
         m_sessionNameEdit->clear();
-        m_hostEdit->clear();
-        m_portSpinBox->setValue(23);
-        m_powFileEdit->clear();
+        m_hostEdit->setText("mume.org");
+        m_portSpinBox->setValue(4242);
+        m_powFileEdit->setText(defaultPowFilePath());
         m_editorEdit->setText(defaultPlatformEditor());
         m_pagerEdit->setText(defaultPlatformPager());
         m_scrollbackSpinBox->setValue(5000);
@@ -170,9 +174,9 @@ void MainWindow::onSessionSelected(int index)
     } else {
         SessionProfile profile = m_profileManager.loadSession(sessionName);
         m_sessionNameEdit->setText(profile.name);
-        m_hostEdit->setText(profile.host);
-        m_portSpinBox->setValue(profile.port);
-        m_powFileEdit->setText(profile.powFilePath);
+        m_hostEdit->setText(profile.host.isEmpty() ? "mume.org" : profile.host);
+        m_portSpinBox->setValue(profile.port > 0 ? profile.port : 4242);
+        m_powFileEdit->setText(profile.powFilePath.isEmpty() ? defaultPowFilePath() : profile.powFilePath);
         m_editorEdit->setText(profile.editor.isEmpty() ? defaultPlatformEditor() : profile.editor);
         m_pagerEdit->setText(profile.pager.isEmpty() ? defaultPlatformPager() : profile.pager);
         m_scrollbackSpinBox->setValue(profile.scrollbackLines > 0 ? profile.scrollbackLines : 5000);
@@ -183,9 +187,10 @@ void MainWindow::onSessionSelected(int index)
 
 void MainWindow::onBrowsePowFile()
 {
+    QString initialDir = profileDirectoryPath();
     QString filePath = QFileDialog::getOpenFileName(this,
         tr("Select Powwow Profile File"),
-        QString(),
+        initialDir,
         tr("Powwow Files (*.pow *.doc *.demo);;All Files (*)"));
     if (!filePath.isEmpty()) {
         m_powFileEdit->setText(filePath);
@@ -218,9 +223,9 @@ SessionProfile MainWindow::currentProfileFromUi() const
 {
     SessionProfile profile;
     profile.name = m_sessionNameEdit->text().trimmed();
-    profile.host = m_hostEdit->text().trimmed();
+    profile.host = m_hostEdit->text().trimmed().isEmpty() ? "mume.org" : m_hostEdit->text().trimmed();
     profile.port = m_portSpinBox->value();
-    profile.powFilePath = m_powFileEdit->text().trimmed();
+    profile.powFilePath = m_powFileEdit->text().trimmed().isEmpty() ? defaultPowFilePath() : m_powFileEdit->text().trimmed();
     profile.editor = m_editorEdit->text().trimmed().isEmpty() ? defaultPlatformEditor() : m_editorEdit->text().trimmed();
     profile.pager = m_pagerEdit->text().trimmed().isEmpty() ? defaultPlatformPager() : m_pagerEdit->text().trimmed();
     profile.scrollbackLines = m_scrollbackSpinBox->value();
