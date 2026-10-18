@@ -35,7 +35,7 @@ elseif(APPLE)
     add_definitions(-DUSE_BSD_LIKE=1)
 endif()
 
-if(UNIX OR MINGW)
+if(UNIX)
     add_definitions(-DHAVE_GETOPT_LONG=1)
     add_definitions(-DUSE_REGEXP=1)
     add_definitions(-DUSE_SHELL=1)
@@ -47,7 +47,7 @@ if(UNIX OR MINGW)
     add_definitions(-DHAVE_SYS_TYPES_H=1)
 endif()
 
-if(ENABLE_TLS AND (UNIX OR MINGW))
+if(ENABLE_TLS AND UNIX)
     find_package(PkgConfig QUIET)
     if(PkgConfig_FOUND)
         pkg_check_modules(GNUTLS gnutls)
@@ -67,8 +67,8 @@ if(ENABLE_TLS AND (UNIX OR MINGW))
     endif()
 endif()
 
-# C source files for powwow CLI (Linux, macOS, MinGW)
-if(NOT MSVC)
+# C source files for POSIX powwow CLI (Linux/macOS)
+if(NOT WIN32)
     find_package(Curses QUIET)
     set(POWWOW_C_SOURCES
         src/beam.c
@@ -109,10 +109,6 @@ if(NOT MSVC)
         add_definitions(-DHAVE_LIBDL=1)
     endif()
 
-    if(WIN32)
-        target_link_libraries(powwow PRIVATE ws2_32)
-    endif()
-
     # powwow utilities
     add_executable(powwow-muc src/powwow-muc.c)
     add_executable(powwow-movieplay src/powwow-movieplay.c)
@@ -127,11 +123,6 @@ if(NOT MSVC)
         target_link_libraries(powwow-movieplay PRIVATE ncurses)
     endif()
 
-    if(WIN32)
-        target_link_libraries(powwow-muc PRIVATE ws2_32)
-        target_link_libraries(powwow-movieplay PRIVATE ws2_32)
-    endif()
-
     # Tests
     enable_testing()
     add_executable(test_charset src/test_charset.c src/charset.c src/width.c)
@@ -141,13 +132,18 @@ if(NOT MSVC)
     add_test(NAME test_sgr COMMAND test_sgr)
 endif()
 
-# Qt6 GUI Application (Ubuntu, macOS, Windows MinGW / MSVC)
+# Qt6 GUI Application (Ubuntu, macOS, Windows)
 if(BUILD_GUI)
     find_package(Qt6 COMPONENTS Core Widgets Network QUIET)
     if(Qt6_FOUND)
         set(CMAKE_AUTOMOC ON)
         set(CMAKE_AUTORCC ON)
         set(CMAKE_AUTOUIC ON)
+
+        # MSVC Static Runtime configuration if static build
+        if(MSVC AND NOT BUILD_SHARED_LIBS)
+            set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+        endif()
 
         set(GUI_SOURCES
             gui/main.cpp
