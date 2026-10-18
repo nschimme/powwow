@@ -85,6 +85,7 @@ jobs:
           if [ -d "build/powwow-gui.app" ]; then
             cp build/powwow build/powwow-gui.app/Contents/MacOS/powwow 2>/dev/null || true
             $(brew --prefix qt@6)/bin/macdeployqt build/powwow-gui.app -always-overwrite || true
+            codesign --force --deep -s - build/powwow-gui.app || true
             zip -r powwow-gui-macos.zip build/powwow-gui.app
           else
             zip -r powwow-gui-macos.zip build/powwow
