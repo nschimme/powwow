@@ -15,39 +15,6 @@
 #include <QResizeEvent>
 #include <QDebug>
 
-static QString extractEmbeddedPowwow()
-{
-    QString resPath = ":/bin/powwow";
-#ifdef Q_OS_WIN
-    if (!QFile::exists(resPath)) {
-        resPath = ":/bin/powwow.exe";
-    }
-#endif
-
-    if (!QFile::exists(resPath)) {
-        return QString();
-    }
-
-    QString tempDir = QDir::tempPath();
-    QString tempBin = tempDir + "/powwow_embedded";
-#ifdef Q_OS_WIN
-    tempBin += ".exe";
-#endif
-
-    QFile resFile(resPath);
-    if (resFile.open(QIODevice::ReadOnly)) {
-        QFile outFile(tempBin);
-        if (outFile.open(QIODevice::WriteOnly)) {
-            outFile.write(resFile.readAll());
-            outFile.close();
-            outFile.setPermissions(QFile::ExeUser | QFile::ReadUser | QFile::WriteUser |
-                                  QFile::ExeOwner | QFile::ReadOwner | QFile::WriteOwner);
-            return tempBin;
-        }
-    }
-    return QString();
-}
-
 static QColor colorFrom256Index(int index)
 {
     static const QColor baseColors[16] = {
@@ -155,12 +122,7 @@ void TerminalWidget::startSession()
 #endif
 
     if (!QFileInfo::exists(powwowBin)) {
-        QString embeddedBin = extractEmbeddedPowwow();
-        if (!embeddedBin.isEmpty()) {
-            powwowBin = embeddedBin;
-        } else {
-            powwowBin = "powwow";
-        }
+        powwowBin = "powwow";
     }
 
     // Configure environment variables (POWWOWEDITOR, POWWOWPAGER, COLUMNS, LINES for NAWS)

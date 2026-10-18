@@ -71,8 +71,8 @@ if(ENABLE_TLS AND (UNIX OR MINGW))
     endif()
 endif()
 
-# C source files for POSIX powwow CLI (Linux/macOS)
-if(NOT WIN32)
+# C source files for POSIX/MinGW powwow CLI
+if(NOT MSVC)
     find_package(Curses QUIET)
     set(POWWOW_C_SOURCES
         src/beam.c
@@ -113,6 +113,10 @@ if(NOT WIN32)
         add_definitions(-DHAVE_LIBDL=1)
     endif()
 
+    if(WIN32)
+        target_link_libraries(powwow PRIVATE ws2_32)
+    endif()
+
     # powwow utilities
     add_executable(powwow-muc src/powwow-muc.c)
     add_executable(powwow-movieplay src/powwow-movieplay.c)
@@ -127,6 +131,11 @@ if(NOT WIN32)
         target_link_libraries(powwow-movieplay PRIVATE ncurses)
     endif()
 
+    if(WIN32)
+        target_link_libraries(powwow-muc PRIVATE ws2_32)
+        target_link_libraries(powwow-movieplay PRIVATE ws2_32)
+    endif()
+
     # Tests
     enable_testing()
     add_executable(test_charset src/test_charset.c src/charset.c src/width.c)
@@ -134,6 +143,8 @@ if(NOT WIN32)
 
     add_executable(test_sgr src/test_sgr.c src/sgr.c)
     add_test(NAME test_sgr COMMAND test_sgr)
+
+    install(TARGETS powwow powwow-muc powwow-movieplay DESTINATION bin)
 endif()
 
 # Qt6 GUI Application (Ubuntu, macOS, Windows)
@@ -157,7 +168,6 @@ if(BUILD_GUI)
             gui/terminalwidget.h
             gui/profilemanager.cpp
             gui/profilemanager.h
-            gui/resources.qrc
         )
 
         if(APPLE)
@@ -171,6 +181,8 @@ if(BUILD_GUI)
             Qt6::Widgets
             Qt6::Network
         )
+
+        install(TARGETS powwow-gui DESTINATION bin)
     else()
         message(STATUS "Qt6 not found. Skipping powwow-gui build.")
     endif()
