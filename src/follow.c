@@ -56,8 +56,8 @@ extern int printf();
 # define O_CBREAK CBREAK
 #endif
 
-#if defined(TCSETS) || defined(TCSETATTR)
-# ifndef TCSETS		/* cc for HP-UX  SHOULD define this... */
+#if defined(TCSETS) || defined(TCSETATTR) || defined(__APPLE__) || defined(__DARWIN__)
+# ifndef TCSETS
 #  define TCSETS TCSETATTR
 #  define TCGETS TCGETATTR
 # endif
@@ -66,6 +66,14 @@ typedef struct termios termiostruct;
 # define TCSETS TCSETA
 # define TCGETS TCGETA
 typedef struct termio termiostruct;
+#endif
+
+#if defined(__APPLE__) || defined(__DARWIN__)
+# define tcgets(fd, tp) tcgetattr(fd, tp)
+# define tcsets(fd, tp) tcsetattr(fd, TCSANOW, tp)
+#else
+# define tcgets(fd, tp) ioctl(fd, TCGETS, tp)
+# define tcsets(fd, tp) ioctl(fd, TCSETS, tp)
 #endif
 
 #ifdef VSUSP
@@ -114,14 +122,14 @@ void set_terminal()
     ioctl(0, TIOCSLTC, &ltc);
 #else /* not USE_SGTTY */
     termiostruct ttyb;
-    ioctl(0, TCGETS, &ttyb);
+    tcgets(0, &ttyb);
     ttybsave = ttyb;
     ttyb.c_lflag &= ~(ECHO|ICANON);
     ttyb.c_cc[VTIME] = 0;
     ttyb.c_cc[VMIN] = 1;
     /* disable the special handling of the suspend key (handle it ourselves) */
     ttyb.c_cc[O_SUSP] = 0;
-    ioctl(0, TCSETS, &ttyb);
+    tcsets(0, &ttyb);
 #endif /* USE_SGTTY */
 }
 
@@ -135,7 +143,7 @@ void reset_terminal()
     ioctl(0, TIOCSETC, &tcsave);
     ioctl(0, TIOCSLTC, &ltcsave);
 #else /* not USE_SGTTY */
-    ioctl(0, TCSETS, &ttybsave);
+    tcsets(0, &ttybsave);
 #endif /* USE_SGTTY */
 }
 

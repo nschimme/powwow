@@ -21,7 +21,14 @@
 #  include <process.h>
 #endif
 
+#include <signal.h>
 #include <stdbool.h>
+
+#ifndef SA_ONESHOT
+#  ifdef SA_RESETHAND
+#    define SA_ONESHOT SA_RESETHAND
+#  endif
+#endif
 
 #if !defined(SYS_TIME_H) && !defined(_H_SYS_TIME)
 #  include <sys/time.h>
