@@ -47,13 +47,18 @@ if(ENABLE_TLS AND UNIX)
     if(PkgConfig_FOUND)
         pkg_check_modules(GNUTLS gnutls)
     endif()
+    if(NOT GNUTLS_FOUND)
+        find_library(GNUTLS_LIB gnutls PATHS /opt/homebrew/lib /usr/local/lib)
+        find_path(GNUTLS_INCLUDE_DIR gnutls/gnutls.h PATHS /opt/homebrew/include /usr/local/include)
+        if(GNUTLS_LIB AND GNUTLS_INCLUDE_DIR)
+            set(GNUTLS_FOUND TRUE)
+            set(GNUTLS_LIBRARIES ${GNUTLS_LIB})
+            set(GNUTLS_INCLUDE_DIRS ${GNUTLS_INCLUDE_DIR})
+        endif()
+    endif()
+
     if(GNUTLS_FOUND)
         add_definitions(-DUSE_TLS=1 -DHAVE_GNUTLS=1)
-    else()
-        find_library(GNUTLS_LIB gnutls)
-        if(GNUTLS_LIB)
-            add_definitions(-DUSE_TLS=1 -DHAVE_GNUTLS=1)
-        endif()
     endif()
 endif()
 
@@ -92,8 +97,6 @@ if(NOT WIN32)
     if(GNUTLS_FOUND)
         target_include_directories(powwow PRIVATE ${GNUTLS_INCLUDE_DIRS})
         target_link_libraries(powwow PRIVATE ${GNUTLS_LIBRARIES})
-    elseif(GNUTLS_LIB)
-        target_link_libraries(powwow PRIVATE ${GNUTLS_LIB})
     endif()
 
     if(CMAKE_DL_LIBS)
@@ -148,7 +151,12 @@ if(BUILD_GUI)
             gui/resources.qrc
         )
 
-        add_executable(powwow-gui ${GUI_SOURCES})
+        if(APPLE)
+            add_executable(powwow-gui MACOSX_BUNDLE ${GUI_SOURCES})
+        else()
+            add_executable(powwow-gui ${GUI_SOURCES})
+        endif()
+
         target_link_libraries(powwow-gui PRIVATE
             Qt6::Core
             Qt6::Widgets

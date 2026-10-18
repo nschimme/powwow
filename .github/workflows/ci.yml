@@ -47,6 +47,7 @@ jobs:
       - name: Configure CMake (macOS)
         if: runner.os == 'macOS'
         run: |
+          export PKG_CONFIG_PATH="$(brew --prefix gnutls)/lib/pkgconfig:$PKG_CONFIG_PATH"
           cmake -B build -DBUILD_GUI=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$(brew --prefix qt@6);$(brew --prefix gnutls);$(brew --prefix ncurses)"
 
       - name: Configure CMake (Windows MSVC)
@@ -82,6 +83,7 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           if [ -d "build/powwow-gui.app" ]; then
+            cp build/powwow build/powwow-gui.app/Contents/MacOS/powwow 2>/dev/null || true
             $(brew --prefix qt@6)/bin/macdeployqt build/powwow-gui.app -always-overwrite || true
             zip -r powwow-gui-macos.zip build/powwow-gui.app
           else
