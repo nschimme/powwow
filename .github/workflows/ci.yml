@@ -1,4 +1,4 @@
-name: Build and CI
+name: Build
 
 on:
   push:
@@ -7,31 +7,81 @@ on:
     branches: [ main, master ]
 
 jobs:
-  build:
-    name: Build (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-
+  build-ubuntu:
+    name: Build (ubuntu-latest)
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Install dependencies (Ubuntu)
-        if: runner.os == 'Linux'
+      - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y qt6-base-dev qt6-tools-dev libgnutls28-dev libncurses-dev cmake
+          sudo apt-get install -y cmake build-essential libgnutls28-dev libncurses-dev qt6-base-dev
 
-      - name: Install dependencies (macOS)
-        if: runner.os == 'macOS'
+      - name: Configure CMake
+        run: cmake -B build -DBUILD_GUI=ON -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Run Tests
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Package with CPack
         run: |
-          brew install qt@6 gnutls ncurses pkg-config cmake
+          cd build
+          cpack -G TGZ
 
-      - name: Setup MSYS2 (Windows MinGW64)
-        if: runner.os == 'Windows'
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: powwow-ubuntu
+          path: build/*.tar.gz
+
+  build-macos:
+    name: Build (macos-latest)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: brew install qt@6 gnutls ncurses pkg-config cmake
+
+      - name: Configure CMake
+        run: |
+          export PKG_CONFIG_PATH="$(brew --prefix gnutls)/lib/pkgconfig:$PKG_CONFIG_PATH"
+          cmake -B build -DBUILD_GUI=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$(brew --prefix qt@6);$(brew --prefix gnutls);$(brew --prefix ncurses)"
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Run Tests
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Package Qt App Bundle with macdeployqt
+        run: |
+          if [ -d "build/powwow-gui.app" ]; then
+            "$(brew --prefix qt@6)/bin/macdeployqt" build/powwow-gui.app -always-overwrite
+          fi
+
+      - name: Package with CPack
+        run: |
+          cd build
+          cpack -G TGZ
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: powwow-macos
+          path: build/*.tar.gz
+
+  build-windows:
+    name: Build (windows-latest)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MSYS2
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
@@ -42,97 +92,30 @@ jobs:
             mingw-w64-x86_64-ninja
             mingw-w64-x86_64-qt6-base
             mingw-w64-x86_64-qt6-tools
-            mingw-w64-x86_64-gnutls
-            mingw-w64-x86_64-ncurses
             zip
 
-      - name: Configure CMake (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          cmake -B build -DBUILD_GUI=ON -DCMAKE_BUILD_TYPE=Release
-
-      - name: Configure CMake (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          export PKG_CONFIG_PATH="$(brew --prefix gnutls)/lib/pkgconfig:$PKG_CONFIG_PATH"
-          cmake -B build -DBUILD_GUI=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$(brew --prefix qt@6);$(brew --prefix gnutls);$(brew --prefix ncurses)"
-
-      - name: Configure CMake (Windows MinGW64)
-        if: runner.os == 'Windows'
+      - name: Configure CMake
         shell: msys2 {0}
         run: |
           cmake -B build -G "Ninja" -DBUILD_GUI=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXE_LINKER_FLAGS="-static -static-libgcc -static-libstdc++"
 
-      - name: Build (Windows MinGW64)
-        if: runner.os == 'Windows'
+      - name: Build
+        shell: msys2 {0}
+        run: cmake --build build
+
+      - name: Package Qt Dependencies with windeployqt
         shell: msys2 {0}
         run: |
-          cmake --build build
+          windeployqt --no-compiler-runtime build/powwow-gui.exe
 
-      - name: Build (Linux / macOS)
-        if: runner.os != 'Windows'
-        run: |
-          cmake --build build --config Release
-
-      - name: Run CTest (Windows MinGW64)
-        if: runner.os == 'Windows'
+      - name: Package with CPack
         shell: msys2 {0}
         run: |
-          ctest --test-dir build --output-on-failure
+          cd build
+          cpack -G ZIP
 
-      - name: Run CTest (Linux / macOS)
-        if: runner.os != 'Windows'
-        run: |
-          ctest --test-dir build --build-config Release --output-on-failure
-
-      - name: Package Artifact (Windows MinGW64)
-        if: runner.os == 'Windows'
-        shell: msys2 {0}
-        run: |
-          mkdir -p powwow-windows
-          cp build/powwow-gui.exe powwow-windows/ 2>/dev/null || true
-          cp build/powwow.exe powwow-windows/ 2>/dev/null || true
-          windeployqt --release powwow-windows/powwow-gui.exe 2>/dev/null || true
-          zip -r powwow-gui-windows.zip powwow-windows
-
-      - name: Package Artifact (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          if [ -d "build/powwow-gui.app" ]; then
-            cp build/powwow build/powwow-gui.app/Contents/MacOS/powwow 2>/dev/null || true
-            $(brew --prefix qt@6)/bin/macdeployqt build/powwow-gui.app -always-overwrite || true
-            codesign --force --deep -s - build/powwow-gui.app || true
-            zip -r powwow-gui-macos.zip build/powwow-gui.app
-          else
-            zip -r powwow-gui-macos.zip build/powwow
-          fi
-
-      - name: Package Artifact (Ubuntu)
-        if: runner.os == 'Linux'
-        run: |
-          if [ -f "build/powwow-gui" ]; then
-            tar -czvf powwow-gui-ubuntu.tar.gz -C build powwow-gui powwow
-          else
-            tar -czvf powwow-gui-ubuntu.tar.gz -C build powwow
-          fi
-
-      - name: Upload Windows Archive
-        if: runner.os == 'Windows'
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: powwow-gui-windows.zip
-          path: powwow-gui-windows.zip
-
-      - name: Upload macOS Zip Package
-        if: runner.os == 'macOS'
-        uses: actions/upload-artifact@v4
-        with:
-          name: powwow-gui-macos.zip
-          path: powwow-gui-macos.zip
-
-      - name: Upload Ubuntu Archive
-        if: runner.os == 'Linux'
-        uses: actions/upload-artifact@v4
-        with:
-          name: powwow-gui-ubuntu.tar.gz
-          path: powwow-gui-ubuntu.tar.gz
+          name: powwow-windows
+          path: build/*.zip

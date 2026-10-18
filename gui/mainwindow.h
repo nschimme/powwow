@@ -16,7 +16,7 @@ class MainWindow : public QMainWindow {
     Q_OBJECT
 
 public:
-    explicit MainWindow(QWidget *parent = nullptr);
+    MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
 private slots:
@@ -46,17 +46,12 @@ private:
     QSpinBox *m_portSpinBox;
     QLineEdit *m_powFileEdit;
     QPushButton *m_browsePowButton;
-
     QLineEdit *m_editorEdit;
     QPushButton *m_browseEditorButton;
     QLineEdit *m_pagerEdit;
     QPushButton *m_browsePagerButton;
-
     QSpinBox *m_scrollbackSpinBox;
-
     QCheckBox *m_tlsCheckBox;
-    QCheckBox *m_utf8CheckBox;
-
     QPushButton *m_saveButton;
     QPushButton *m_deleteButton;
     QPushButton *m_connectButton;

@@ -178,3 +178,20 @@ if(BUILD_GUI)
         message(STATUS "Qt6 not found. Skipping powwow-gui build.")
     endif()
 endif()
+
+# CPack Configuration
+set(CPACK_PACKAGE_NAME "powwow")
+set(CPACK_PACKAGE_VENDOR "Powwow MUD Client")
+set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Powwow MUD client and Qt GUI launcher")
+set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/nschimme/powwow")
+
+if(WIN32)
+    set(CPACK_GENERATOR "ZIP;NSIS")
+elseif(APPLE)
+    set(CPACK_GENERATOR "DragNDrop;TGZ")
+else()
+    set(CPACK_GENERATOR "TGZ;DEB")
+endif()
+
+include(CPack)

@@ -1,105 +1,221 @@
 #include "terminalwidget.h"
 #include <QRegularExpression>
 #include <QScrollBar>
+#include <QCoreApplication>
+#include <QDir>
+#include <QFileInfo>
+#include <QKeyEvent>
 #include <QDebug>
 
-TerminalWidget::TerminalWidget(QWidget *parent)
-    : QTextEdit(parent),
-      m_socket(new QTcpSocket(this)),
-      m_maxScrollbackLines(5000)
+TerminalWidget::TerminalWidget(const SessionProfile &profile, QWidget *parent)
+    : QWidget(parent),
+      m_profile(profile),
+      m_terminalDisplay(new QPlainTextEdit(this)),
+      m_disconnectButton(new QPushButton(tr("Disconnect"), this)),
+      m_process(new QProcess(this))
 {
-    setReadOnly(true);
-    setUndoRedoEnabled(false);
-    setFocusPolicy(Qt::StrongFocus);
+    QVBoxLayout *mainLayout = new QVBoxLayout(this);
+    mainLayout->setContentsMargins(0, 0, 0, 0);
+
+    QHBoxLayout *topBar = new QHBoxLayout();
+    topBar->addStretch();
+    topBar->addWidget(m_disconnectButton);
+    mainLayout->addLayout(topBar);
+
+    m_terminalDisplay->setReadOnly(true);
+    m_terminalDisplay->setUndoRedoEnabled(false);
+    m_terminalDisplay->setFocusPolicy(Qt::StrongFocus);
+    m_terminalDisplay->installEventFilter(this);
+    m_terminalDisplay->setMaximumBlockCount(m_profile.scrollbackLines > 0 ? m_profile.scrollbackLines : 5000);
 
     // Default font and black background
     QFont font("Courier New", 10);
     font.setStyleHint(QFont::Monospace);
-    setFont(font);
+    m_terminalDisplay->setFont(font);
 
-    QPalette p = palette();
+    QPalette p = m_terminalDisplay->palette();
     p.setColor(QPalette::Base, Qt::black);
     p.setColor(QPalette::Text, Qt::lightGray);
-    setPalette(p);
+    m_terminalDisplay->setPalette(p);
 
     m_defaultFormat.setForeground(QColor(192, 192, 192)); // Light gray
     m_defaultFormat.setBackground(Qt::black);
     m_currentFormat = m_defaultFormat;
 
-    connect(m_socket, &QTcpSocket::readyRead, this, &TerminalWidget::onReadyRead);
-    connect(m_socket, &QTcpSocket::connected, this, [this]() {
-        appendAnsiText("\n*** Connected to " + m_host + ":" + QString::number(m_port) + " ***\n\n");
-    });
-    connect(m_socket, &QTcpSocket::disconnected, this, [this]() {
-        appendAnsiText("\n*** Disconnected from host ***\n\n");
-    });
-    connect(m_socket, &QAbstractSocket::errorOccurred, this, [this](QAbstractSocket::SocketError) {
-        appendAnsiText("\n*** Socket error: " + m_socket->errorString() + " ***\n\n");
-    });
+    mainLayout->addWidget(m_terminalDisplay);
+
+    connect(m_disconnectButton, &QPushButton::clicked, this, &TerminalWidget::stopSession);
+    connect(m_process, &QProcess::readyReadStandardOutput, this, &TerminalWidget::onProcessReadyRead);
+    connect(m_process, &QProcess::readyReadStandardError, this, &TerminalWidget::onProcessReadyRead);
+    connect(m_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this, &TerminalWidget::onProcessFinished);
+    connect(m_process, &QProcess::errorOccurred, this, &TerminalWidget::onProcessError);
 }
 
 TerminalWidget::~TerminalWidget()
 {
-    if (m_socket->state() == QAbstractSocket::ConnectedState) {
-        m_socket->disconnectFromHost();
+    stopSession();
+}
+
+QString TerminalWidget::findPowwowExecutable() const
+{
+    QString appDir = QCoreApplication::applicationDirPath();
+
+    // 1. Same directory as powwow-gui executable
+#ifdef Q_OS_WIN
+    QString localExe = appDir + "/powwow.exe";
+#else
+    QString localExe = appDir + "/powwow";
+#endif
+    if (QFileInfo::exists(localExe)) {
+        return localExe;
+    }
+
+    // 2. Look in build / relative directories
+#ifdef Q_OS_WIN
+    if (QFileInfo::exists(appDir + "/../powwow.exe")) return appDir + "/../powwow.exe";
+#else
+    if (QFileInfo::exists(appDir + "/../powwow")) return appDir + "/../powwow";
+    if (QFileInfo::exists(appDir + "/powwow")) return appDir + "/powwow";
+#endif
+
+    // 3. Fallback to system PATH
+#ifdef Q_OS_WIN
+    return "powwow.exe";
+#else
+    return "powwow";
+#endif
+}
+
+void TerminalWidget::startSession()
+{
+    if (m_process->state() != QProcess::NotRunning) return;
+
+    updateGridSize();
+
+    QString host = m_profile.host.isEmpty() ? "mume.org" : m_profile.host;
+    uint16_t port = m_profile.port > 0 ? m_profile.port : 4242;
+
+    appendAnsiText(QString("=== Connecting (%1 %2) [%3x%4] ===\n")
+                   .arg(host).arg(port).arg(m_cols).arg(m_lines));
+
+    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+    if (!m_profile.editor.isEmpty()) {
+        env.insert("POWWOWEDITOR", m_profile.editor);
+        env.insert("EDITOR", m_profile.editor);
+    }
+    if (!m_profile.pager.isEmpty()) {
+        env.insert("POWWOWPAGER", m_profile.pager);
+        env.insert("PAGER", m_profile.pager);
+    }
+    m_process->setProcessEnvironment(env);
+
+    QString program = findPowwowExecutable();
+    QStringList arguments;
+
+    if (m_profile.useTls) {
+        arguments << "--tls";
+    }
+
+    // Pass .pow profile file if specified and exists
+    if (!m_profile.powFilePath.isEmpty() && QFileInfo::exists(m_profile.powFilePath)) {
+        arguments << m_profile.powFilePath;
+    }
+
+    arguments << host << QString::number(port);
+
+    m_process->start(program, arguments);
+}
+
+void TerminalWidget::stopSession()
+{
+    if (m_process->state() != QProcess::NotRunning) {
+        m_process->terminate();
+        if (!m_process->waitForFinished(1000)) {
+            m_process->kill();
+        }
     }
 }
 
-void TerminalWidget::connectToHost(const QString &host, uint16_t port)
+void TerminalWidget::onProcessReadyRead()
 {
-    m_host = host;
-    m_port = port;
-
-    if (m_socket->state() == QAbstractSocket::ConnectedState) {
-        m_socket->disconnectFromHost();
-    }
-
-    appendAnsiText("*** Connecting to " + host + ":" + QString::number(port) + "... ***\n");
-    m_socket->connectToHost(host, port);
-}
-
-void TerminalWidget::setMaxScrollbackLines(int lines)
-{
-    m_maxScrollbackLines = lines;
-    document()->setMaximumBlockCount(lines);
-}
-
-void TerminalWidget::keyPressEvent(QKeyEvent *event)
-{
-    if (m_socket->state() != QAbstractSocket::ConnectedState) {
-        QTextEdit::keyPressEvent(event);
-        return;
-    }
-
-    QString text = event->text();
-    if (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) {
-        m_socket->write("\r\n");
-        return;
-    }
-    if (event->key() == Qt::Key_Backspace) {
-        m_socket->write("\b");
-        return;
-    }
-    if (event->key() == Qt::Key_Tab) {
-        m_socket->write("\t");
-        return;
-    }
-
-    if (!text.isEmpty()) {
-        m_socket->write(text.toUtf8());
+    QByteArray data = m_process->readAllStandardOutput();
+    data += m_process->readAllStandardError();
+    if (!data.isEmpty()) {
+        QString text = QString::fromUtf8(data);
+        appendAnsiText(text);
     }
 }
 
-void TerminalWidget::onReadyRead()
+void TerminalWidget::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatus)
 {
-    QByteArray data = m_socket->readAll();
-    QString text = QString::fromUtf8(data);
-    appendAnsiText(text);
+    Q_UNUSED(exitCode);
+    Q_UNUSED(exitStatus);
+    appendAnsiText("\n=== Session Disconnected ===\n");
+}
+
+void TerminalWidget::onProcessError(QProcess::ProcessError error)
+{
+    if (error == QProcess::FailedToStart) {
+        appendAnsiText(QString("\n=== Failed to start powwow executable (%1) ===\n").arg(findPowwowExecutable()));
+    }
+}
+
+bool TerminalWidget::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched == m_terminalDisplay && event->type() == QEvent::KeyPress) {
+        QKeyEvent *keyEvent = static_cast<QKeyEvent *>(event);
+        sendKeyToProcess(keyEvent);
+        return true;
+    }
+    return QWidget::eventFilter(watched, event);
+}
+
+void TerminalWidget::sendKeyToProcess(QKeyEvent *keyEvent)
+{
+    if (m_process->state() != QProcess::Running) return;
+
+    QByteArray data;
+    if (keyEvent->key() == Qt::Key_Return || keyEvent->key() == Qt::Key_Enter) {
+        data = "\r\n";
+    } else if (keyEvent->key() == Qt::Key_Backspace) {
+        data = "\b";
+    } else if (keyEvent->key() == Qt::Key_Tab) {
+        data = "\t";
+    } else {
+        QString text = keyEvent->text();
+        if (!text.isEmpty()) {
+            data = text.toUtf8();
+        }
+    }
+
+    if (!data.isEmpty()) {
+        m_process->write(data);
+    }
+}
+
+void TerminalWidget::resizeEvent(QResizeEvent *event)
+{
+    QWidget::resizeEvent(event);
+    updateGridSize();
+}
+
+void TerminalWidget::updateGridSize()
+{
+    QFontMetrics fm(m_terminalDisplay->font());
+    int charWidth = fm.horizontalAdvance('W');
+    int lineHeight = fm.height();
+
+    if (charWidth > 0 && lineHeight > 0) {
+        int w = m_terminalDisplay->viewport()->width();
+        int h = m_terminalDisplay->viewport()->height();
+        m_cols = qMax(20, w / charWidth);
+        m_lines = qMax(5, h / lineHeight);
+    }
 }
 
 void TerminalWidget::appendAnsiText(const QString &text)
 {
-    QTextCursor cursor(document());
+    QTextCursor cursor(m_terminalDisplay->document());
     cursor.movePosition(QTextCursor::End);
 
     // ANSI escape sequence regex: \x1B\[[0-9;]*[a-zA-Z]
@@ -140,15 +256,13 @@ void TerminalWidget::appendAnsiText(const QString &text)
             QChar command = match.captured(2).at(0);
 
             if (command == 'm') {
-                // Select Graphic Rendition (SGR)
                 parseSgrCode(codeStr);
             }
             pos += matchLen;
         }
     }
 
-    // Auto-scroll to bottom
-    verticalScrollBar()->setValue(verticalScrollBar()->maximum());
+    m_terminalDisplay->verticalScrollBar()->setValue(m_terminalDisplay->verticalScrollBar()->maximum());
 }
 
 void TerminalWidget::parseSgrCode(const QString &codeStr)

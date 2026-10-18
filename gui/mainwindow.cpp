@@ -13,7 +13,7 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
     setWindowTitle(tr("MUME Powwow Launcher"));
-    resize(780, 560);
+    resize(720, 480);
 
     setupUi();
     refreshSessionList();
@@ -55,18 +55,22 @@ void MainWindow::setupUi()
     QFormLayout *formLayout = new QFormLayout();
 
     m_sessionNameEdit = new QLineEdit(optionsGroupBox);
-    m_sessionNameEdit->setPlaceholderText(tr("New Session Name"));
+    m_sessionNameEdit->setPlaceholderText(tr("Session Name"));
     formLayout->addRow(tr("Session Name:"), m_sessionNameEdit);
 
+    QHBoxLayout *hostPortLayout = new QHBoxLayout();
     m_hostEdit = new QLineEdit(optionsGroupBox);
     m_hostEdit->setText("mume.org");
     m_hostEdit->setPlaceholderText(tr("mume.org"));
-    formLayout->addRow(tr("Host Name (or IP):"), m_hostEdit);
 
     m_portSpinBox = new QSpinBox(optionsGroupBox);
     m_portSpinBox->setRange(1, 65535);
     m_portSpinBox->setValue(4242);
-    formLayout->addRow(tr("Port:"), m_portSpinBox);
+
+    hostPortLayout->addWidget(m_hostEdit, 3);
+    hostPortLayout->addWidget(new QLabel(tr("Port:"), optionsGroupBox));
+    hostPortLayout->addWidget(m_portSpinBox, 1);
+    formLayout->addRow(tr("Host Name:"), hostPortLayout);
 
     // Profile (.pow file) path picker
     QHBoxLayout *powFileLayout = new QHBoxLayout();
@@ -86,7 +90,7 @@ void MainWindow::setupUi()
     m_browseEditorButton = new QPushButton(tr("Browse..."), optionsGroupBox);
     editorLayout->addWidget(m_editorEdit);
     editorLayout->addWidget(m_browseEditorButton);
-    formLayout->addRow(tr("Editor (POWWOWEDITOR):"), editorLayout);
+    formLayout->addRow(tr("Editor:"), editorLayout);
 
     // Pager (POWWOWPAGER) picker with platform default placeholder
     QHBoxLayout *pagerLayout = new QHBoxLayout();
@@ -96,7 +100,7 @@ void MainWindow::setupUi()
     m_browsePagerButton = new QPushButton(tr("Browse..."), optionsGroupBox);
     pagerLayout->addWidget(m_pagerEdit);
     pagerLayout->addWidget(m_browsePagerButton);
-    formLayout->addRow(tr("Pager (POWWOWPAGER):"), pagerLayout);
+    formLayout->addRow(tr("Pager:"), pagerLayout);
 
     // Scrollback Lines configuration
     m_scrollbackSpinBox = new QSpinBox(optionsGroupBox);
@@ -107,10 +111,6 @@ void MainWindow::setupUi()
 
     m_tlsCheckBox = new QCheckBox(tr("Enable TLS Encryption"), optionsGroupBox);
     formLayout->addRow(tr("Security:"), m_tlsCheckBox);
-
-    m_utf8CheckBox = new QCheckBox(tr("Enable UTF-8 Encoding"), optionsGroupBox);
-    m_utf8CheckBox->setChecked(true);
-    formLayout->addRow(tr("Encoding:"), m_utf8CheckBox);
 
     optionsLayout->addLayout(formLayout);
     optionsLayout->addStretch();
@@ -170,7 +170,6 @@ void MainWindow::onSessionSelected(int index)
         m_pagerEdit->setText(defaultPlatformPager());
         m_scrollbackSpinBox->setValue(5000);
         m_tlsCheckBox->setChecked(false);
-        m_utf8CheckBox->setChecked(true);
     } else {
         SessionProfile profile = m_profileManager.loadSession(sessionName);
         m_sessionNameEdit->setText(profile.name);
@@ -181,7 +180,6 @@ void MainWindow::onSessionSelected(int index)
         m_pagerEdit->setText(profile.pager.isEmpty() ? defaultPlatformPager() : profile.pager);
         m_scrollbackSpinBox->setValue(profile.scrollbackLines > 0 ? profile.scrollbackLines : 5000);
         m_tlsCheckBox->setChecked(profile.useTls);
-        m_utf8CheckBox->setChecked(profile.useUtf8);
     }
 }
 
@@ -230,7 +228,7 @@ SessionProfile MainWindow::currentProfileFromUi() const
     profile.pager = m_pagerEdit->text().trimmed().isEmpty() ? defaultPlatformPager() : m_pagerEdit->text().trimmed();
     profile.scrollbackLines = m_scrollbackSpinBox->value();
     profile.useTls = m_tlsCheckBox->isChecked();
-    profile.useUtf8 = m_utf8CheckBox->isChecked();
+    profile.useUtf8 = true; // UTF-8 enabled by default
     return profile;
 }
 

@@ -37,15 +37,17 @@ protected:
 
 private:
     void appendAnsiText(const QString &text);
-    void applyAnsiCode(int code, QTextCharFormat &format);
+    void parseSgrCode(const QString &codeStr);
     void sendKeyToProcess(QKeyEvent *keyEvent);
     void updateGridSize();
+    QString findPowwowExecutable() const;
 
     SessionProfile m_profile;
     QPlainTextEdit *m_terminalDisplay;
     QPushButton *m_disconnectButton;
     QProcess *m_process;
 
+    QTextCharFormat m_defaultFormat;
     QTextCharFormat m_currentFormat;
     int m_cols = 80;
     int m_lines = 24;
