@@ -1,5 +1,27 @@
 #include "profilemanager.h"
 
+QString defaultPlatformEditor()
+{
+#if defined(Q_OS_WIN)
+    return "notepad";
+#elif defined(Q_OS_MAC)
+    return "open -W -n -t";
+#else
+    return "xdg-open";
+#endif
+}
+
+QString defaultPlatformPager()
+{
+#if defined(Q_OS_WIN)
+    return "notepad";
+#elif defined(Q_OS_MAC)
+    return "open -W -n -t";
+#else
+    return "xdg-open";
+#endif
+}
+
 ProfileManager::ProfileManager()
 {
 }
@@ -29,8 +51,9 @@ SessionProfile ProfileManager::loadSession(const QString &name) const
         profile.host = settings.value("host", "").toString();
         profile.port = settings.value("port", 23).toInt();
         profile.powFilePath = settings.value("powFilePath", "").toString();
-        profile.editor = settings.value("editor", "").toString();
-        profile.pager = settings.value("pager", "").toString();
+        profile.editor = settings.value("editor", defaultPlatformEditor()).toString();
+        profile.pager = settings.value("pager", defaultPlatformPager()).toString();
+        profile.scrollbackLines = settings.value("scrollbackLines", 5000).toInt();
         profile.useTls = settings.value("useTls", false).toBool();
         profile.useUtf8 = settings.value("useUtf8", true).toBool();
         settings.endGroup();
@@ -51,6 +74,7 @@ void ProfileManager::saveSession(const SessionProfile &profile)
     settings.setValue("powFilePath", profile.powFilePath);
     settings.setValue("editor", profile.editor);
     settings.setValue("pager", profile.pager);
+    settings.setValue("scrollbackLines", profile.scrollbackLines);
     settings.setValue("useTls", profile.useTls);
     settings.setValue("useUtf8", profile.useUtf8);
     settings.endGroup();

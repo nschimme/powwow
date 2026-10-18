@@ -52,6 +52,8 @@ private:
     QLineEdit *m_pagerEdit;
     QPushButton *m_browsePagerButton;
 
+    QSpinBox *m_scrollbackSpinBox;
+
     QCheckBox *m_tlsCheckBox;
     QCheckBox *m_utf8CheckBox;
 

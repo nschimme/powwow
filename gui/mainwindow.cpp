@@ -13,7 +13,7 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
     setWindowTitle(tr("Powwow GUI Configuration & Launcher"));
-    resize(760, 520);
+    resize(780, 560);
 
     setupUi();
     refreshSessionList();
@@ -76,23 +76,30 @@ void MainWindow::setupUi()
     powFileLayout->addWidget(m_browsePowButton);
     formLayout->addRow(tr("Profile (.pow):"), powFileLayout);
 
-    // Editor (POWWOWEDITOR) picker
+    // Editor (POWWOWEDITOR) picker with platform default placeholder
     QHBoxLayout *editorLayout = new QHBoxLayout();
     m_editorEdit = new QLineEdit(optionsGroupBox);
-    m_editorEdit->setPlaceholderText(tr("Editor program (e.g. vi, emacs, gedit)"));
+    m_editorEdit->setPlaceholderText(tr("Default (%1)").arg(defaultPlatformEditor()));
     m_browseEditorButton = new QPushButton(tr("Browse..."), optionsGroupBox);
     editorLayout->addWidget(m_editorEdit);
     editorLayout->addWidget(m_browseEditorButton);
     formLayout->addRow(tr("Editor (POWWOWEDITOR):"), editorLayout);
 
-    // Pager (POWWOWPAGER) picker
+    // Pager (POWWOWPAGER) picker with platform default placeholder
     QHBoxLayout *pagerLayout = new QHBoxLayout();
     m_pagerEdit = new QLineEdit(optionsGroupBox);
-    m_pagerEdit->setPlaceholderText(tr("Pager/Viewer program (e.g. less, more)"));
+    m_pagerEdit->setPlaceholderText(tr("Default (%1)").arg(defaultPlatformPager()));
     m_browsePagerButton = new QPushButton(tr("Browse..."), optionsGroupBox);
     pagerLayout->addWidget(m_pagerEdit);
     pagerLayout->addWidget(m_browsePagerButton);
     formLayout->addRow(tr("Pager (POWWOWPAGER):"), pagerLayout);
+
+    // Scrollback Lines configuration
+    m_scrollbackSpinBox = new QSpinBox(optionsGroupBox);
+    m_scrollbackSpinBox->setRange(100, 100000);
+    m_scrollbackSpinBox->setSingleStep(500);
+    m_scrollbackSpinBox->setValue(5000);
+    formLayout->addRow(tr("Scrollback Lines:"), m_scrollbackSpinBox);
 
     m_tlsCheckBox = new QCheckBox(tr("Enable TLS Encryption"), optionsGroupBox);
     formLayout->addRow(tr("Security:"), m_tlsCheckBox);
@@ -155,8 +162,9 @@ void MainWindow::onSessionSelected(int index)
         m_hostEdit->clear();
         m_portSpinBox->setValue(23);
         m_powFileEdit->clear();
-        m_editorEdit->clear();
-        m_pagerEdit->clear();
+        m_editorEdit->setText(defaultPlatformEditor());
+        m_pagerEdit->setText(defaultPlatformPager());
+        m_scrollbackSpinBox->setValue(5000);
         m_tlsCheckBox->setChecked(false);
         m_utf8CheckBox->setChecked(true);
     } else {
@@ -165,8 +173,9 @@ void MainWindow::onSessionSelected(int index)
         m_hostEdit->setText(profile.host);
         m_portSpinBox->setValue(profile.port);
         m_powFileEdit->setText(profile.powFilePath);
-        m_editorEdit->setText(profile.editor);
-        m_pagerEdit->setText(profile.pager);
+        m_editorEdit->setText(profile.editor.isEmpty() ? defaultPlatformEditor() : profile.editor);
+        m_pagerEdit->setText(profile.pager.isEmpty() ? defaultPlatformPager() : profile.pager);
+        m_scrollbackSpinBox->setValue(profile.scrollbackLines > 0 ? profile.scrollbackLines : 5000);
         m_tlsCheckBox->setChecked(profile.useTls);
         m_utf8CheckBox->setChecked(profile.useUtf8);
     }
@@ -212,8 +221,9 @@ SessionProfile MainWindow::currentProfileFromUi() const
     profile.host = m_hostEdit->text().trimmed();
     profile.port = m_portSpinBox->value();
     profile.powFilePath = m_powFileEdit->text().trimmed();
-    profile.editor = m_editorEdit->text().trimmed();
-    profile.pager = m_pagerEdit->text().trimmed();
+    profile.editor = m_editorEdit->text().trimmed().isEmpty() ? defaultPlatformEditor() : m_editorEdit->text().trimmed();
+    profile.pager = m_pagerEdit->text().trimmed().isEmpty() ? defaultPlatformPager() : m_pagerEdit->text().trimmed();
+    profile.scrollbackLines = m_scrollbackSpinBox->value();
     profile.useTls = m_tlsCheckBox->isChecked();
     profile.useUtf8 = m_utf8CheckBox->isChecked();
     return profile;

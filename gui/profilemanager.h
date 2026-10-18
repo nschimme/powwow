@@ -5,13 +5,17 @@
 #include <QStringList>
 #include <QSettings>
 
+QString defaultPlatformEditor();
+QString defaultPlatformPager();
+
 struct SessionProfile {
     QString name;
     QString host;
     int port = 23;
     QString powFilePath;
-    QString editor;
-    QString pager;
+    QString editor = defaultPlatformEditor();
+    QString pager = defaultPlatformPager();
+    int scrollbackLines = 5000;
     bool useTls = false;
     bool useUtf8 = true;
 };

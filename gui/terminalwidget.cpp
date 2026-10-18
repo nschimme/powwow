@@ -93,6 +93,7 @@ TerminalWidget::TerminalWidget(const SessionProfile &profile, QWidget *parent)
     m_terminalDisplay->setReadOnly(true);
     m_terminalDisplay->setLineWrapMode(QPlainTextEdit::NoWrap);
     m_terminalDisplay->setFocusPolicy(Qt::StrongFocus);
+    m_terminalDisplay->setMaximumBlockCount(m_profile.scrollbackLines > 0 ? m_profile.scrollbackLines : 5000);
     m_terminalDisplay->setStyleSheet("QPlainTextEdit { background-color: #000000; color: #CCCCCC; selection-background-color: #555555; }");
 
     // Set monospace font for fixed character grid
