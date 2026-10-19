@@ -3,5 +3,6 @@
         <file>resources/fonts/powttymono.ttf</file>
         <file>resources/icons/icon.ico</file>
         <file>resources/icons/icon.png</file>
+        <file>resources/icons/icon.icns</file>
     </qresource>
 </RCC>

@@ -53,19 +53,21 @@ private:
     int m_cols = 80;
     int m_lines = 24;
 
-    // Telnet parser state machine
-    enum TelnetState {
-        TN_NORMAL,
-        TN_IAC,
-        TN_WILL,
-        TN_WONT,
-        TN_DO,
-        TN_DONT,
-        TN_SB,
-        TN_SB_IAC
+    bool m_localEcho = false; // Telnet echo negotiation state
+
+    enum TelnetParserState {
+        STATE_NORMAL,
+        STATE_IAC,
+        STATE_WILL,
+        STATE_WONT,
+        STATE_DO,
+        STATE_DONT,
+        STATE_SB,
+        STATE_SB_IAC
     };
-    TelnetState m_telnetState = TN_NORMAL;
+    TelnetParserState m_telnetState = STATE_NORMAL;
     QByteArray m_suboptBuffer;
+    QByteArray m_utf8Buffer;
 };
 
 #endif // TERMINALWIDGET_H

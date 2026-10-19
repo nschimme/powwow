@@ -10,22 +10,22 @@
 #include <QDebug>
 
 // Telnet Protocol Constants
-static const uint8_t TN_SE   = 240;
-static const uint8_t TN_NOP  = 241;
-static const uint8_t TN_DM   = 242;
-static const uint8_t TN_BRK  = 243;
-static const uint8_t TN_IP   = 244;
-static const uint8_t TN_AO   = 245;
-static const uint8_t TN_AYT  = 246;
-static const uint8_t TN_EC   = 247;
-static const uint8_t TN_EL   = 248;
-static const uint8_t TN_GA   = 249;
-static const uint8_t TN_SB   = 250;
-static const uint8_t TN_WILL = 251;
-static const uint8_t TN_WONT = 252;
-static const uint8_t TN_DO   = 253;
-static const uint8_t TN_DONT = 254;
-static const uint8_t TN_IAC  = 255;
+static const uint8_t TELNET_SE   = 240;
+static const uint8_t TELNET_NOP  = 241;
+static const uint8_t TELNET_DM   = 242;
+static const uint8_t TELNET_BRK  = 243;
+static const uint8_t TELNET_IP   = 244;
+static const uint8_t TELNET_AO   = 245;
+static const uint8_t TELNET_AYT  = 246;
+static const uint8_t TELNET_EC   = 247;
+static const uint8_t TELNET_EL   = 248;
+static const uint8_t TELNET_GA   = 249;
+static const uint8_t TELNET_SB   = 250;
+static const uint8_t TELNET_WILL = 251;
+static const uint8_t TELNET_WONT = 252;
+static const uint8_t TELNET_DO   = 253;
+static const uint8_t TELNET_DONT = 254;
+static const uint8_t TELNET_IAC  = 255;
 
 static const uint8_t TELOPT_ECHO   = 1;
 static const uint8_t TELOPT_SGA    = 3;
@@ -134,7 +134,7 @@ void TerminalWidget::onSocketError()
 void TerminalWidget::sendTelnetOption(uint8_t command, uint8_t option)
 {
     if (m_socket->state() != QAbstractSocket::ConnectedState) return;
-    const uint8_t buf[3] = { TN_IAC, command, option };
+    const uint8_t buf[3] = { TELNET_IAC, command, option };
     m_socket->write(reinterpret_cast<const char*>(buf), 3);
 }
 
@@ -142,10 +142,10 @@ void TerminalWidget::sendWindowSize()
 {
     if (m_socket->state() != QAbstractSocket::ConnectedState) return;
     const uint8_t buf[9] = {
-        TN_IAC, TN_SB, TELOPT_NAWS,
+        TELNET_IAC, TELNET_SB, TELOPT_NAWS,
         static_cast<uint8_t>(m_cols >> 8), static_cast<uint8_t>(m_cols & 0xFF),
         static_cast<uint8_t>(m_lines >> 8), static_cast<uint8_t>(m_lines & 0xFF),
-        TN_IAC, TN_SE
+        TELNET_IAC, TELNET_SE
     };
     m_socket->write(reinterpret_cast<const char*>(buf), 9);
 }
@@ -159,9 +159,9 @@ void TerminalWidget::processTelnetStream(const QByteArray &data)
         uint8_t b = static_cast<uint8_t>(data.at(i));
 
         switch (m_telnetState) {
-        case TN_NORMAL:
-            if (b == TN_IAC) {
-                m_telnetState = TN_IAC;
+        case STATE_NORMAL:
+            if (b == TELNET_IAC) {
+                m_telnetState = STATE_IAC;
             } else if (b == 0 || (b < 32 && b != '\n' && b != '\r' && b != '\t' && b != '\b' && b != 27)) {
                 // Ignore non-printable control bytes
             } else {
@@ -169,85 +169,100 @@ void TerminalWidget::processTelnetStream(const QByteArray &data)
             }
             break;
 
-        case TN_IAC:
-            if (b == TN_IAC) {
-                cleanData.append(static_cast<char>(TN_IAC));
-                m_telnetState = TN_NORMAL;
-            } else if (b == TN_WILL) {
-                m_telnetState = TN_WILL;
-            } else if (b == TN_WONT) {
-                m_telnetState = TN_WONT;
-            } else if (b == TN_DO) {
-                m_telnetState = TN_DO;
-            } else if (b == TN_DONT) {
-                m_telnetState = TN_DONT;
-            } else if (b == TN_SB) {
+        case STATE_IAC:
+            if (b == TELNET_IAC) {
+                cleanData.append(static_cast<char>(TELNET_IAC));
+                m_telnetState = STATE_NORMAL;
+            } else if (b == TELNET_WILL) {
+                m_telnetState = STATE_WILL;
+            } else if (b == TELNET_WONT) {
+                m_telnetState = STATE_WONT;
+            } else if (b == TELNET_DO) {
+                m_telnetState = STATE_DO;
+            } else if (b == TELNET_DONT) {
+                m_telnetState = STATE_DONT;
+            } else if (b == TELNET_SB) {
                 m_suboptBuffer.clear();
-                m_telnetState = TN_SB;
+                m_telnetState = STATE_SB;
             } else {
-                // Ignore single-byte Telnet commands (GA, NOP, etc.)
-                m_telnetState = TN_NORMAL;
+                // Single-byte commands like GA (Go Ahead) or NOP
+                m_telnetState = STATE_NORMAL;
             }
             break;
 
-        case TN_WILL:
-            if (b == TELOPT_ECHO || b == TELOPT_SGA) {
-                sendTelnetOption(TN_DO, b);
+        case STATE_WILL:
+            if (b == TELOPT_ECHO) {
+                // WILL ECHO: Server will echo input -> Client should turn OFF local echo
+                m_localEcho = false;
+                sendTelnetOption(TELNET_DO, b);
+            } else if (b == TELOPT_SGA) {
+                sendTelnetOption(TELNET_DO, b);
             } else {
-                sendTelnetOption(TN_DONT, b);
+                sendTelnetOption(TELNET_DONT, b);
             }
-            m_telnetState = TN_NORMAL;
+            m_telnetState = STATE_NORMAL;
             break;
 
-        case TN_WONT:
-            sendTelnetOption(TN_DONT, b);
-            m_telnetState = TN_NORMAL;
+        case STATE_WONT:
+            if (b == TELOPT_ECHO) {
+                // WONT ECHO: Server will NOT echo input (e.g. password prompt) -> Client local echo OFF
+                m_localEcho = false;
+            }
+            sendTelnetOption(TELNET_DONT, b);
+            m_telnetState = STATE_NORMAL;
             break;
 
-        case TN_DO:
-            if (b == TELOPT_NAWS) {
-                sendTelnetOption(TN_WILL, b);
+        case STATE_DO:
+            if (b == TELOPT_ECHO) {
+                // DO ECHO: Server asks client to echo -> Client local echo ON
+                m_localEcho = true;
+                sendTelnetOption(TELNET_WILL, b);
+            } else if (b == TELOPT_NAWS) {
+                sendTelnetOption(TELNET_WILL, b);
                 sendWindowSize();
             } else if (b == TELOPT_TTYPE) {
-                sendTelnetOption(TN_WILL, b);
+                sendTelnetOption(TELNET_WILL, b);
             } else if (b == TELOPT_SGA) {
-                sendTelnetOption(TN_WILL, b);
+                sendTelnetOption(TELNET_WILL, b);
             } else {
-                sendTelnetOption(TN_WONT, b);
+                sendTelnetOption(TELNET_WONT, b);
             }
-            m_telnetState = TN_NORMAL;
+            m_telnetState = STATE_NORMAL;
             break;
 
-        case TN_DONT:
-            sendTelnetOption(TN_WONT, b);
-            m_telnetState = TN_NORMAL;
+        case STATE_DONT:
+            if (b == TELOPT_ECHO) {
+                m_localEcho = false;
+            }
+            sendTelnetOption(TELNET_WONT, b);
+            m_telnetState = STATE_NORMAL;
             break;
 
-        case TN_SB:
-            if (b == TN_IAC) {
-                m_telnetState = TN_SB_IAC;
+        case STATE_SB:
+            if (b == TELNET_IAC) {
+                m_telnetState = STATE_SB_IAC;
             } else {
                 m_suboptBuffer.append(static_cast<char>(b));
             }
             break;
 
-        case TN_SB_IAC:
-            if (b == TN_SE) {
+        case STATE_SB_IAC:
+            if (b == TELNET_SE) {
                 if (m_suboptBuffer.size() >= 2 && static_cast<uint8_t>(m_suboptBuffer.at(0)) == TELOPT_TTYPE && static_cast<uint8_t>(m_suboptBuffer.at(1)) == 1) {
                     const uint8_t ttypeResp[] = {
-                        TN_IAC, TN_SB, TELOPT_TTYPE, 0,
+                        TELNET_IAC, TELNET_SB, TELOPT_TTYPE, 0,
                         'P', 'O', 'W', 'T', 'T', 'Y',
-                        TN_IAC, TN_SE
+                        TELNET_IAC, TELNET_SE
                     };
                     m_socket->write(reinterpret_cast<const char*>(ttypeResp), sizeof(ttypeResp));
                 }
                 m_suboptBuffer.clear();
-                m_telnetState = TN_NORMAL;
-            } else if (b == TN_IAC) {
-                m_suboptBuffer.append(static_cast<char>(TN_IAC));
-                m_telnetState = TN_SB;
+                m_telnetState = STATE_NORMAL;
+            } else if (b == TELNET_IAC) {
+                m_suboptBuffer.append(static_cast<char>(TELNET_IAC));
+                m_telnetState = STATE_SB;
             } else {
-                m_telnetState = TN_SB;
+                m_telnetState = STATE_SB;
             }
             break;
         }
@@ -256,14 +271,32 @@ void TerminalWidget::processTelnetStream(const QByteArray &data)
     if (!cleanData.isEmpty()) {
         QString text;
         if (m_profile.useUtf8) {
-            text = QString::fromUtf8(cleanData);
-            if (text.contains(QChar(0xFFFD))) {
-                text = QString::fromLatin1(cleanData);
+            m_utf8Buffer.append(cleanData);
+            // Decode complete UTF-8 sequences and buffer incomplete tail bytes
+            QString decoded = QString::fromUtf8(m_utf8Buffer);
+            int replacementIdx = decoded.indexOf(QChar(0xFFFD));
+
+            if (replacementIdx != -1) {
+                // If incomplete multi-byte sequence at end, retain trailing incomplete bytes
+                if (replacementIdx == decoded.length() - 1) {
+                    m_utf8Buffer = m_utf8Buffer.right(1);
+                    text = decoded.left(replacementIdx);
+                } else {
+                    // Fall back to Latin-1
+                    text = QString::fromLatin1(m_utf8Buffer);
+                    m_utf8Buffer.clear();
+                }
+            } else {
+                text = decoded;
+                m_utf8Buffer.clear();
             }
         } else {
             text = QString::fromLatin1(cleanData);
         }
-        appendAnsiText(text);
+
+        if (!text.isEmpty()) {
+            appendAnsiText(text);
+        }
     }
 }
 
@@ -290,6 +323,9 @@ bool TerminalWidget::eventFilter(QObject *watched, QEvent *event)
                 QString clipText = QGuiApplication::clipboard()->text();
                 if (!clipText.isEmpty()) {
                     m_socket->write(clipText.toUtf8());
+                    if (m_localEcho) {
+                        appendAnsiText(clipText);
+                    }
                 }
             }
             return true;
@@ -327,7 +363,7 @@ void TerminalWidget::sendKeyToSocket(QKeyEvent *keyEvent)
 
     if (!data.isEmpty()) {
         m_socket->write(data);
-        if (!echoText.isEmpty()) {
+        if (m_localEcho && !echoText.isEmpty()) {
             appendAnsiText(echoText);
         }
     }

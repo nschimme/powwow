@@ -167,11 +167,13 @@ if(BUILD_GUI)
         endif()
 
         if(APPLE)
-            add_executable(powtty MACOSX_BUNDLE ${GUI_SOURCES})
+            set(MACOS_ICON_FILE "${CMAKE_CURRENT_SOURCE_DIR}/gui/resources/icons/icon.icns")
+            set_source_files_properties(${MACOS_ICON_FILE} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
+            add_executable(powtty MACOSX_BUNDLE ${GUI_SOURCES} ${MACOS_ICON_FILE})
             set_target_properties(powtty PROPERTIES
                 MACOSX_BUNDLE_BUNDLE_NAME "PowTTY"
                 MACOSX_BUNDLE_GUI_IDENTIFIER "org.mume.powtty"
-                MACOSX_BUNDLE_ICON_FILE "icon.ico"
+                MACOSX_BUNDLE_ICON_FILE "icon.icns"
             )
         else()
             add_executable(powtty ${GUI_SOURCES})
