@@ -174,6 +174,25 @@ if(BUILD_GUI)
         )
 
         install(TARGETS powwow-gui DESTINATION bin)
+
+        # Deployment step using macdeployqt / windeployqt in CMake install/post-build
+        if(WIN32)
+            find_program(WINDEPLOYQT_EXECUTABLE windeployqt HINTS ${Qt6_DIR}/../../../bin)
+            if(WINDEPLOYQT_EXECUTABLE)
+                add_custom_command(TARGET powwow-gui POST_BUILD
+                    COMMAND ${WINDEPLOYQT_EXECUTABLE} --no-compiler-runtime $<TARGET_FILE:powwow-gui>
+                    COMMENT "Running windeployqt..."
+                )
+            endif()
+        elseif(APPLE)
+            find_program(MACDEPLOYQT_EXECUTABLE macdeployqt HINTS ${Qt6_DIR}/../../../bin)
+            if(MACDEPLOYQT_EXECUTABLE)
+                add_custom_command(TARGET powwow-gui POST_BUILD
+                    COMMAND ${MACDEPLOYQT_EXECUTABLE} $<TARGET_BUNDLE_DIR:powwow-gui> -always-overwrite
+                    COMMENT "Running macdeployqt..."
+                )
+            endif()
+        endif()
     else()
         message(STATUS "Qt6 not found. Skipping powwow-gui build.")
     endif()

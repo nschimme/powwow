@@ -58,12 +58,6 @@ jobs:
       - name: Run Tests
         run: ctest --test-dir build --output-on-failure
 
-      - name: Package Qt App Bundle with macdeployqt
-        run: |
-          if [ -d "build/powwow-gui.app" ]; then
-            "$(brew --prefix qt@6)/bin/macdeployqt" build/powwow-gui.app -always-overwrite
-          fi
-
       - name: Package with CPack
         run: |
           cd build
@@ -102,11 +96,6 @@ jobs:
       - name: Build
         shell: msys2 {0}
         run: cmake --build build
-
-      - name: Package Qt Dependencies with windeployqt
-        shell: msys2 {0}
-        run: |
-          windeployqt --no-compiler-runtime build/powwow-gui.exe
 
       - name: Package with CPack
         shell: msys2 {0}
