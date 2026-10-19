@@ -9,7 +9,11 @@
  *  (at your option) any later version.
  *
  */
-#include <alloca.h>
+#if defined(__has_include)
+#  if __has_include(<alloca.h>)
+#    include <alloca.h>
+#  endif
+#endif
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -49,7 +53,13 @@
  * many warnings, but seems to be necessary at times. works anyway.
  */
 #    include <termios.h>
-#    include <termio.h>
+#    if defined(__has_include)
+#      if __has_include(<termio.h>)
+#        include <termio.h>
+#      endif
+#    elif !defined(__APPLE__) && !defined(__FreeBSD__) && !defined(__OpenBSD__) && !defined(__NetBSD__)
+#      include <termio.h>
+#    endif
 #  endif
 /* #else USE_SGTTY */
 #endif
@@ -71,8 +81,8 @@
 #  define O_CBREAK CBREAK
 #endif
 
-#if defined(TCSETS) || defined(TCSETATTR)
-#  ifndef TCSETS		/* cc for HP-UX  SHOULD define this... */
+#if defined(TCSETS) || defined(TCSETATTR) || defined(__APPLE__) || defined(__DARWIN__)
+#  ifndef TCSETS
 #    define TCSETS TCSETATTR
 #    define TCGETS TCGETATTR
 #  endif
@@ -81,6 +91,14 @@ typedef struct termios termiostruct;
 #  define TCSETS TCSETA
 #  define TCGETS TCGETA
 typedef struct termio termiostruct;
+#endif
+
+#if defined(__APPLE__) || defined(__DARWIN__)
+#  define tcgets(fd, tp) tcgetattr(fd, tp)
+#  define tcsets(fd, tp) tcsetattr(fd, TCSANOW, tp)
+#else
+#  define tcgets(fd, tp) ioctl(fd, TCGETS, tp)
+#  define tcsets(fd, tp) ioctl(fd, TCSETS, tp)
 #endif
 
 #ifdef VSUSP
@@ -197,14 +215,14 @@ void tty_start(void)
     ioctl(tty_read_fd, TIOCSLTC, &ltc);
 #else /* not USE_SGTTY */
     termiostruct ttyb;
-    ioctl(tty_read_fd, TCGETS, &ttyb);
+    tcgets(tty_read_fd, &ttyb);
     ttybsave = ttyb;
     ttyb.c_lflag &= ~(ECHO|ICANON);
     ttyb.c_cc[VTIME] = 0;
     ttyb.c_cc[VMIN] = 1;
     /* disable the special handling of the suspend key (handle it ourselves) */
     ttyb.c_cc[O_SUSP] = 0;
-    ioctl(tty_read_fd, TCSETS, &ttyb);
+    tcsets(tty_read_fd, &ttyb);
 #endif /* USE_SGTTY */
 
 #ifdef USE_LOCALE
@@ -242,7 +260,7 @@ void tty_quit(void)
     ioctl(tty_read_fd, TIOCSETC, &tcsave);
     ioctl(tty_read_fd, TIOCSLTC, &ltcsave);
 #else /* not USE_SGTTY */
-    ioctl(tty_read_fd, TCSETS, &ttybsave);
+    tcsets(tty_read_fd, &ttybsave);
 #endif /* USE_SGTTY */
     tty_puts(kpadend);
     tty_flush();
@@ -277,7 +295,7 @@ void tty_special_keys(void)
 #else /* not USE_SGTTY */
     int i;
     termiostruct ttyb;
-    ioctl(tty_read_fd, TCGETS, &ttyb);
+    tcgets(tty_read_fd, &ttyb);
     if (linemode & LM_CHAR)  {
 	/* char-by-char mode: disable all special keys and set raw mode */
 	for(i = 0; i < NCCS; i++)
@@ -292,7 +310,7 @@ void tty_special_keys(void)
 	/* set cooked mode */
 	ttyb.c_oflag |= OPOST;
     }
-    ioctl(tty_read_fd, TCSETS, &ttyb);
+    tcsets(tty_read_fd, &ttyb);
 #endif /* USE_SGTTY */
 }
 

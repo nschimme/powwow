@@ -5,9 +5,32 @@
 #ifndef _DEFINES_H_
 #define _DEFINES_H_
 
-#include "../config.h"
+#ifdef HAVE_CONFIG_H
+#  include "config.h"
+#elif defined(__has_include)
+#  if __has_include("../config.h")
+#    include "../config.h"
+#  endif
+#endif
 
+#ifdef _WIN32
+#  ifndef _WIN32_WINNT
+#    define _WIN32_WINNT 0x0601
+#  endif
+#  include <winsock2.h>
+#  include <ws2tcpip.h>
+#  include <io.h>
+#  include <process.h>
+#endif
+
+#include <signal.h>
 #include <stdbool.h>
+
+#ifndef SA_ONESHOT
+#  ifdef SA_RESETHAND
+#    define SA_ONESHOT SA_RESETHAND
+#  endif
+#endif
 
 #if !defined(SYS_TIME_H) && !defined(_H_SYS_TIME)
 #  include <sys/time.h>

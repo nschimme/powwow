@@ -1,0 +1,110 @@
+name: Build
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-ubuntu:
+    name: Build (ubuntu-latest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential libgnutls28-dev libncurses-dev qt6-base-dev
+
+      - name: Configure CMake
+        run: cmake -B build -DBUILD_GUI=ON -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Run Tests
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Package with CPack
+        run: |
+          cd build
+          cpack -G TGZ
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: powwow-ubuntu
+          path: build/*.tar.gz
+
+  build-macos:
+    name: Build (macos-13)
+    runs-on: macos-13
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: brew install qt@6 gnutls ncurses pkg-config cmake
+
+      - name: Configure CMake
+        run: |
+          export PKG_CONFIG_PATH="$(brew --prefix gnutls)/lib/pkgconfig:$PKG_CONFIG_PATH"
+          cmake -B build -DBUILD_GUI=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$(brew --prefix qt@6);$(brew --prefix gnutls);$(brew --prefix ncurses)"
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Run Tests
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Package with CPack
+        run: |
+          cd build
+          cpack -G TGZ
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: powwow-macos
+          path: build/*.tar.gz
+
+  build-windows:
+    name: Build (windows-latest)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-qt6-base
+            mingw-w64-x86_64-qt6-tools
+            zip
+
+      - name: Configure CMake
+        shell: msys2 {0}
+        run: |
+          cmake -B build -G "Ninja" -DBUILD_GUI=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXE_LINKER_FLAGS="-static -static-libgcc -static-libstdc++"
+
+      - name: Build
+        shell: msys2 {0}
+        run: cmake --build build
+
+      - name: Package with CPack
+        shell: msys2 {0}
+        run: |
+          cd build
+          cpack -G ZIP
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: powwow-windows
+          path: build/*.zip
