@@ -53,7 +53,7 @@ private:
     int m_cols = 80;
     int m_lines = 24;
 
-    bool m_localEcho = false; // Telnet echo negotiation state
+    bool m_passwordMode = false; // Password prompt input mode
 
     enum TelnetParserState {
         STATE_NORMAL,

@@ -125,7 +125,7 @@ void MainWindow::setupUi()
     formLayout->addRow(tr("Scrollback Lines:"), m_scrollbackSpinBox);
 
     m_tlsCheckBox = new QCheckBox(tr("Enable TLS Encryption"), optionsGroupBox);
-    m_tlsCheckBox->setChecked(true);
+    m_tlsCheckBox->setChecked(false);
     formLayout->addRow(tr("Security:"), m_tlsCheckBox);
 
     m_utf8CheckBox = new QCheckBox(tr("Enable UTF-8 Encoding"), optionsGroupBox);

@@ -192,8 +192,8 @@ void TerminalWidget::processTelnetStream(const QByteArray &data)
 
         case STATE_WILL:
             if (b == TELOPT_ECHO) {
-                // WILL ECHO: Server will echo input -> Client should turn OFF local echo
-                m_localEcho = false;
+                // WILL ECHO from server -> server echoes input -> client password mode
+                m_passwordMode = true;
                 sendTelnetOption(TELNET_DO, b);
             } else if (b == TELOPT_SGA) {
                 sendTelnetOption(TELNET_DO, b);
@@ -205,8 +205,7 @@ void TerminalWidget::processTelnetStream(const QByteArray &data)
 
         case STATE_WONT:
             if (b == TELOPT_ECHO) {
-                // WONT ECHO: Server will NOT echo input (e.g. password prompt) -> Client local echo OFF
-                m_localEcho = false;
+                m_passwordMode = true;
             }
             sendTelnetOption(TELNET_DONT, b);
             m_telnetState = STATE_NORMAL;
@@ -214,8 +213,6 @@ void TerminalWidget::processTelnetStream(const QByteArray &data)
 
         case STATE_DO:
             if (b == TELOPT_ECHO) {
-                // DO ECHO: Server asks client to echo -> Client local echo ON
-                m_localEcho = true;
                 sendTelnetOption(TELNET_WILL, b);
             } else if (b == TELOPT_NAWS) {
                 sendTelnetOption(TELNET_WILL, b);
@@ -231,9 +228,6 @@ void TerminalWidget::processTelnetStream(const QByteArray &data)
             break;
 
         case STATE_DONT:
-            if (b == TELOPT_ECHO) {
-                m_localEcho = false;
-            }
             sendTelnetOption(TELNET_WONT, b);
             m_telnetState = STATE_NORMAL;
             break;
@@ -272,17 +266,14 @@ void TerminalWidget::processTelnetStream(const QByteArray &data)
         QString text;
         if (m_profile.useUtf8) {
             m_utf8Buffer.append(cleanData);
-            // Decode complete UTF-8 sequences and buffer incomplete tail bytes
             QString decoded = QString::fromUtf8(m_utf8Buffer);
             int replacementIdx = decoded.indexOf(QChar(0xFFFD));
 
             if (replacementIdx != -1) {
-                // If incomplete multi-byte sequence at end, retain trailing incomplete bytes
                 if (replacementIdx == decoded.length() - 1) {
                     m_utf8Buffer = m_utf8Buffer.right(1);
                     text = decoded.left(replacementIdx);
                 } else {
-                    // Fall back to Latin-1
                     text = QString::fromLatin1(m_utf8Buffer);
                     m_utf8Buffer.clear();
                 }
@@ -295,6 +286,9 @@ void TerminalWidget::processTelnetStream(const QByteArray &data)
         }
 
         if (!text.isEmpty()) {
+            if (text.contains("password", Qt::CaseInsensitive) || text.contains("passcode", Qt::CaseInsensitive)) {
+                m_passwordMode = true;
+            }
             appendAnsiText(text);
         }
     }
@@ -323,9 +317,8 @@ bool TerminalWidget::eventFilter(QObject *watched, QEvent *event)
                 QString clipText = QGuiApplication::clipboard()->text();
                 if (!clipText.isEmpty()) {
                     m_socket->write(clipText.toUtf8());
-                    if (m_localEcho) {
-                        appendAnsiText(clipText);
-                    }
+                    QString displayMask = m_passwordMode ? QString("*").repeated(clipText.length()) : clipText;
+                    appendAnsiText(displayMask);
                 }
             }
             return true;
@@ -347,6 +340,7 @@ void TerminalWidget::sendKeyToSocket(QKeyEvent *keyEvent)
     if (keyEvent->key() == Qt::Key_Return || keyEvent->key() == Qt::Key_Enter) {
         data = "\r\n";
         echoText = "\n";
+        m_passwordMode = false; // Reset password mode on submit
     } else if (keyEvent->key() == Qt::Key_Backspace) {
         data = "\b";
         echoText = "\b";
@@ -357,13 +351,17 @@ void TerminalWidget::sendKeyToSocket(QKeyEvent *keyEvent)
         QString text = keyEvent->text();
         if (!text.isEmpty()) {
             data = text.toUtf8();
-            echoText = text;
+            if (m_passwordMode) {
+                echoText = "*";
+            } else {
+                echoText = text;
+            }
         }
     }
 
     if (!data.isEmpty()) {
         m_socket->write(data);
-        if (m_localEcho && !echoText.isEmpty()) {
+        if (!echoText.isEmpty()) {
             appendAnsiText(echoText);
         }
     }
