@@ -18,7 +18,7 @@ struct SessionProfile {
     QString editor = defaultPlatformEditor();
     QString pager = defaultPlatformPager();
     int scrollbackLines = 5000;
-    bool useTls = false;
+    bool useTls = true;
     bool useUtf8 = true;
 };
 

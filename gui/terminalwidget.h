@@ -3,11 +3,9 @@
 
 #include <QWidget>
 #include <QPlainTextEdit>
-#include <QPushButton>
 #include <QTcpSocket>
 #include <QSslSocket>
 #include <QVBoxLayout>
-#include <QHBoxLayout>
 #include <QTextCharFormat>
 
 #include "profilemanager.h"
@@ -38,6 +36,9 @@ protected:
     void resizeEvent(QResizeEvent *event) override;
 
 private:
+    void processTelnetStream(const QByteArray &data);
+    void sendTelnetOption(uint8_t command, uint8_t option);
+    void sendWindowSize();
     void appendAnsiText(const QString &text);
     void parseSgrCode(const QString &codeStr);
     void sendKeyToSocket(QKeyEvent *keyEvent);
@@ -45,13 +46,26 @@ private:
 
     SessionProfile m_profile;
     QPlainTextEdit *m_terminalDisplay;
-    QPushButton *m_disconnectButton;
     QTcpSocket *m_socket;
 
     QTextCharFormat m_defaultFormat;
     QTextCharFormat m_currentFormat;
     int m_cols = 80;
     int m_lines = 24;
+
+    // Telnet parser state machine
+    enum TelnetState {
+        TN_NORMAL,
+        TN_IAC,
+        TN_WILL,
+        TN_WONT,
+        TN_DO,
+        TN_DONT,
+        TN_SB,
+        TN_SB_IAC
+    };
+    TelnetState m_telnetState = TN_NORMAL;
+    QByteArray m_suboptBuffer;
 };
 
 #endif // TERMINALWIDGET_H

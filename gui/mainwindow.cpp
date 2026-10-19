@@ -110,6 +110,7 @@ void MainWindow::setupUi()
     formLayout->addRow(tr("Scrollback Lines:"), m_scrollbackSpinBox);
 
     m_tlsCheckBox = new QCheckBox(tr("Enable TLS Encryption"), optionsGroupBox);
+    m_tlsCheckBox->setChecked(true);
     formLayout->addRow(tr("Security:"), m_tlsCheckBox);
 
     m_utf8CheckBox = new QCheckBox(tr("Enable UTF-8 Encoding"), optionsGroupBox);
@@ -134,11 +135,6 @@ void MainWindow::setupUi()
 
     m_stackedWidget->addWidget(m_configPage);
 
-    // Terminal page (tabbed interface for active sessions)
-    m_terminalTabWidget = new QTabWidget(this);
-    m_terminalTabWidget->setTabsClosable(true);
-    m_stackedWidget->addWidget(m_terminalTabWidget);
-
     // Connect signals
     connect(m_sessionListWidget, &QListWidget::currentRowChanged, this, &MainWindow::onSessionSelected);
     connect(m_browsePowButton, &QPushButton::clicked, this, &MainWindow::onBrowsePowFile);
@@ -147,7 +143,6 @@ void MainWindow::setupUi()
     connect(m_saveButton, &QPushButton::clicked, this, &MainWindow::onSaveSession);
     connect(m_deleteButton, &QPushButton::clicked, this, &MainWindow::onDeleteSession);
     connect(m_connectButton, &QPushButton::clicked, this, &MainWindow::onConnectSession);
-    connect(m_terminalTabWidget, &QTabWidget::tabCloseRequested, this, &MainWindow::onCloseTerminalTab);
 }
 
 void MainWindow::refreshSessionList()
@@ -173,7 +168,7 @@ void MainWindow::onSessionSelected(int index)
         m_editorEdit->setText(defaultPlatformEditor());
         m_pagerEdit->setText(defaultPlatformPager());
         m_scrollbackSpinBox->setValue(5000);
-        m_tlsCheckBox->setChecked(false);
+        m_tlsCheckBox->setChecked(true);
         m_utf8CheckBox->setChecked(true);
     } else {
         SessionProfile profile = m_profileManager.loadSession(sessionName);
@@ -267,33 +262,29 @@ void MainWindow::onDeleteSession()
 
 void MainWindow::onConnectSession()
 {
+    if (m_activeTerminalWidget) {
+        m_stackedWidget->removeWidget(m_activeTerminalWidget);
+        delete m_activeTerminalWidget;
+        m_activeTerminalWidget = nullptr;
+    }
+
     SessionProfile profile = currentProfileFromUi();
 
-    TerminalWidget *termWidget = new TerminalWidget(profile, this);
-    QString tabTitle = profile.name.isEmpty() ?
-        (!profile.host.isEmpty() ? profile.host : tr("Session")) : profile.name;
+    m_activeTerminalWidget = new TerminalWidget(profile, this);
+    m_stackedWidget->addWidget(m_activeTerminalWidget);
+    m_stackedWidget->setCurrentWidget(m_activeTerminalWidget);
 
-    int tabIndex = m_terminalTabWidget->addTab(termWidget, tabTitle);
-    m_terminalTabWidget->setCurrentIndex(tabIndex);
-    m_stackedWidget->setCurrentWidget(m_terminalTabWidget);
+    connect(m_activeTerminalWidget, &TerminalWidget::sessionClosed, this, &MainWindow::onEndSession);
 
-    connect(termWidget, &TerminalWidget::sessionClosed, [this, termWidget]() {
-        int idx = m_terminalTabWidget->indexOf(termWidget);
-        if (idx != -1) {
-            onCloseTerminalTab(idx);
-        }
-    });
-
-    termWidget->startSession();
+    m_activeTerminalWidget->startSession();
 }
 
-void MainWindow::onCloseTerminalTab(int index)
+void MainWindow::onEndSession()
 {
-    QWidget *w = m_terminalTabWidget->widget(index);
-    m_terminalTabWidget->removeTab(index);
-    delete w;
-
-    if (m_terminalTabWidget->count() == 0) {
+    if (m_activeTerminalWidget) {
         m_stackedWidget->setCurrentWidget(m_configPage);
+        m_stackedWidget->removeWidget(m_activeTerminalWidget);
+        delete m_activeTerminalWidget;
+        m_activeTerminalWidget = nullptr;
     }
 }

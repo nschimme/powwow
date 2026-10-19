@@ -8,9 +8,9 @@
 #include <QCheckBox>
 #include <QPushButton>
 #include <QStackedWidget>
-#include <QTabWidget>
 
 #include "profilemanager.h"
+#include "terminalwidget.h"
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -27,7 +27,7 @@ private slots:
     void onSaveSession();
     void onDeleteSession();
     void onConnectSession();
-    void onCloseTerminalTab(int index);
+    void onEndSession();
 
 private:
     void setupUi();
@@ -38,7 +38,7 @@ private:
 
     QStackedWidget *m_stackedWidget;
     QWidget *m_configPage;
-    QTabWidget *m_terminalTabWidget;
+    TerminalWidget *m_activeTerminalWidget = nullptr;
 
     QListWidget *m_sessionListWidget;
     QLineEdit *m_sessionNameEdit;
