@@ -60,7 +60,7 @@ ProfileManager::ProfileManager()
 
 QStringList ProfileManager::sessionNames() const
 {
-    QSettings settings("mume", "powwow-gui");
+    QSettings settings("mume", "powtty");
     QStringList names;
     const auto childGroups = settings.childGroups();
     for (const QString &group : childGroups) {
@@ -73,7 +73,7 @@ QStringList ProfileManager::sessionNames() const
 
 SessionProfile ProfileManager::loadSession(const QString &name) const
 {
-    QSettings settings("mume", "powwow-gui");
+    QSettings settings("mume", "powtty");
     SessionProfile profile;
     profile.name = name;
     QString groupKey = QString("session_%1").arg(name);
@@ -86,8 +86,10 @@ SessionProfile ProfileManager::loadSession(const QString &name) const
         profile.editor = settings.value("editor", defaultPlatformEditor()).toString();
         profile.pager = settings.value("pager", defaultPlatformPager()).toString();
         profile.scrollbackLines = settings.value("scrollbackLines", 5000).toInt();
-        profile.useTls = settings.value("useTls", false).toBool();
+        profile.useTls = settings.value("useTls", true).toBool();
         profile.useUtf8 = settings.value("useUtf8", true).toBool();
+        profile.fontFamily = settings.value("fontFamily", "PowTTY Mono").toString();
+        profile.fontSize = settings.value("fontSize", 10).toInt();
         settings.endGroup();
     }
     return profile;
@@ -98,7 +100,7 @@ void ProfileManager::saveSession(const SessionProfile &profile)
     if (profile.name.trimmed().isEmpty()) {
         return;
     }
-    QSettings settings("mume", "powwow-gui");
+    QSettings settings("mume", "powtty");
     QString groupKey = QString("session_%1").arg(profile.name.trimmed());
     settings.beginGroup(groupKey);
     settings.setValue("host", profile.host);
@@ -109,13 +111,15 @@ void ProfileManager::saveSession(const SessionProfile &profile)
     settings.setValue("scrollbackLines", profile.scrollbackLines);
     settings.setValue("useTls", profile.useTls);
     settings.setValue("useUtf8", profile.useUtf8);
+    settings.setValue("fontFamily", profile.fontFamily);
+    settings.setValue("fontSize", profile.fontSize);
     settings.endGroup();
     settings.sync();
 }
 
 void ProfileManager::deleteSession(const QString &name)
 {
-    QSettings settings("mume", "powwow-gui");
+    QSettings settings("mume", "powtty");
     QString groupKey = QString("session_%1").arg(name);
     settings.remove(groupKey);
     settings.sync();

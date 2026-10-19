@@ -6,6 +6,7 @@
 #include <QLineEdit>
 #include <QSpinBox>
 #include <QCheckBox>
+#include <QFontComboBox>
 #include <QPushButton>
 #include <QStackedWidget>
 
@@ -51,6 +52,8 @@ private:
     QLineEdit *m_pagerEdit;
     QPushButton *m_browsePagerButton;
     QSpinBox *m_scrollbackSpinBox;
+    QFontComboBox *m_fontComboBox;
+    QSpinBox *m_fontSizeSpinBox;
     QCheckBox *m_tlsCheckBox;
     QCheckBox *m_utf8CheckBox;
     QPushButton *m_saveButton;

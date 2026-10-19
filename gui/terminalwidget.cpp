@@ -53,8 +53,10 @@ TerminalWidget::TerminalWidget(const SessionProfile &profile, QWidget *parent)
     m_terminalDisplay->installEventFilter(this);
     m_terminalDisplay->setMaximumBlockCount(m_profile.scrollbackLines > 0 ? m_profile.scrollbackLines : 5000);
 
-    // Default font and black background
-    QFont font("Courier New", 10);
+    // Profile Font
+    QString family = m_profile.fontFamily.isEmpty() ? "PowTTY Mono" : m_profile.fontFamily;
+    int size = m_profile.fontSize > 0 ? m_profile.fontSize : 10;
+    QFont font(family, size);
     font.setStyleHint(QFont::Monospace);
     m_terminalDisplay->setFont(font);
 
@@ -65,6 +67,7 @@ TerminalWidget::TerminalWidget(const SessionProfile &profile, QWidget *parent)
 
     m_defaultFormat.setForeground(QColor(192, 192, 192)); // Light gray
     m_defaultFormat.setBackground(Qt::black);
+    m_defaultFormat.setFont(font);
     m_currentFormat = m_defaultFormat;
 
     mainLayout->addWidget(m_terminalDisplay);
@@ -160,7 +163,7 @@ void TerminalWidget::processTelnetStream(const QByteArray &data)
             if (b == TN_IAC) {
                 m_telnetState = TN_IAC;
             } else if (b == 0 || (b < 32 && b != '\n' && b != '\r' && b != '\t' && b != '\b' && b != 27)) {
-                // Ignore non-printable control characters (e.g. U+0001, U+0002, NULL bytes)
+                // Ignore non-printable control characters
             } else {
                 cleanData.append(static_cast<char>(b));
             }
@@ -182,7 +185,6 @@ void TerminalWidget::processTelnetStream(const QByteArray &data)
                 m_suboptBuffer.clear();
                 m_telnetState = TN_SB;
             } else {
-                // Single-byte IAC commands (e.g. NOP, GA)
                 m_telnetState = TN_NORMAL;
             }
             break;
@@ -230,11 +232,10 @@ void TerminalWidget::processTelnetStream(const QByteArray &data)
 
         case TN_SB_IAC:
             if (b == TN_SE) {
-                // Respond to Terminal-Type subnegotiation request SEND (1)
                 if (m_suboptBuffer.size() >= 2 && static_cast<uint8_t>(m_suboptBuffer.at(0)) == TELOPT_TTYPE && static_cast<uint8_t>(m_suboptBuffer.at(1)) == 1) {
                     const uint8_t ttypeResp[] = {
-                        TN_IAC, TN_SB, TELOPT_TTYPE, 0, // IS (0)
-                        'P', 'O', 'W', 'W', 'O', 'W',
+                        TN_IAC, TN_SB, TELOPT_TTYPE, 0,
+                        'P', 'O', 'W', 'T', 'T', 'Y',
                         TN_IAC, TN_SE
                     };
                     m_socket->write(reinterpret_cast<const char*>(ttypeResp), sizeof(ttypeResp));
@@ -255,7 +256,6 @@ void TerminalWidget::processTelnetStream(const QByteArray &data)
         QString text;
         if (m_profile.useUtf8) {
             text = QString::fromUtf8(cleanData);
-            // Fallback to ISO-8859-1 if UTF-8 decoding generated replacement characters
             if (text.contains(QChar(0xFFFD))) {
                 text = QString::fromLatin1(cleanData);
             }
@@ -279,13 +279,11 @@ bool TerminalWidget::eventFilter(QObject *watched, QEvent *event)
     if (watched == m_terminalDisplay && event->type() == QEvent::KeyPress) {
         QKeyEvent *keyEvent = static_cast<QKeyEvent *>(event);
 
-        // Allow standard Copy (Ctrl+C / Cmd+C), SelectAll (Ctrl+A / Cmd+A)
         if (keyEvent->matches(QKeySequence::Copy) ||
             keyEvent->matches(QKeySequence::SelectAll)) {
             return QWidget::eventFilter(watched, event);
         }
 
-        // Handle Paste (Ctrl+V / Cmd+V) to send clipboard text to server and echo
         if (keyEvent->matches(QKeySequence::Paste)) {
             if (m_socket->state() == QAbstractSocket::ConnectedState) {
                 QString clipText = QGuiApplication::clipboard()->text();
@@ -360,7 +358,6 @@ void TerminalWidget::appendAnsiText(const QString &text)
     QTextCursor cursor(m_terminalDisplay->document());
     cursor.movePosition(QTextCursor::End);
 
-    // ANSI escape sequence regex: \x1B\[[0-9;]*[a-zA-Z]
     static const QRegularExpression regex("\x1B\\[([0-9;]*)([a-zA-Z])");
 
     int pos = 0;
@@ -373,7 +370,6 @@ void TerminalWidget::appendAnsiText(const QString &text)
             matchLen = match.capturedLength();
         }
 
-        // Output raw text before escape sequence
         while (pos < matchStart) {
             QChar ch = text.at(pos);
             if (ch == '\r') {

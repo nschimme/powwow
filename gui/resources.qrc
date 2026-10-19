@@ -1,0 +1,7 @@
+<RCC>
+    <qresource prefix="/">
+        <file>resources/fonts/powttymono.ttf</file>
+        <file>resources/icons/icon.ico</file>
+        <file>resources/icons/icon.png</file>
+    </qresource>
+</RCC>

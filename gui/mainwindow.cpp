@@ -12,8 +12,8 @@
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
-    setWindowTitle(tr("MUME Powwow Launcher"));
-    resize(720, 480);
+    setWindowTitle(tr("PowTTY"));
+    resize(750, 520);
 
     setupUi();
     refreshSessionList();
@@ -102,6 +102,21 @@ void MainWindow::setupUi()
     pagerLayout->addWidget(m_browsePagerButton);
     formLayout->addRow(tr("Pager:"), pagerLayout);
 
+    // Font selection
+    QHBoxLayout *fontLayout = new QHBoxLayout();
+    m_fontComboBox = new QFontComboBox(optionsGroupBox);
+    m_fontComboBox->setFontFilters(QFontComboBox::MonospacedFonts);
+    m_fontComboBox->setCurrentFont(QFont("PowTTY Mono"));
+
+    m_fontSizeSpinBox = new QSpinBox(optionsGroupBox);
+    m_fontSizeSpinBox->setRange(6, 72);
+    m_fontSizeSpinBox->setValue(10);
+
+    fontLayout->addWidget(m_fontComboBox, 3);
+    fontLayout->addWidget(new QLabel(tr("Size:"), optionsGroupBox));
+    fontLayout->addWidget(m_fontSizeSpinBox, 1);
+    formLayout->addRow(tr("Terminal Font:"), fontLayout);
+
     // Scrollback Lines configuration
     m_scrollbackSpinBox = new QSpinBox(optionsGroupBox);
     m_scrollbackSpinBox->setRange(100, 100000);
@@ -170,6 +185,8 @@ void MainWindow::onSessionSelected(int index)
         m_scrollbackSpinBox->setValue(5000);
         m_tlsCheckBox->setChecked(true);
         m_utf8CheckBox->setChecked(true);
+        m_fontComboBox->setCurrentFont(QFont("PowTTY Mono"));
+        m_fontSizeSpinBox->setValue(10);
     } else {
         SessionProfile profile = m_profileManager.loadSession(sessionName);
         m_sessionNameEdit->setText(profile.name);
@@ -181,6 +198,8 @@ void MainWindow::onSessionSelected(int index)
         m_scrollbackSpinBox->setValue(profile.scrollbackLines > 0 ? profile.scrollbackLines : 5000);
         m_tlsCheckBox->setChecked(profile.useTls);
         m_utf8CheckBox->setChecked(profile.useUtf8);
+        m_fontComboBox->setCurrentFont(QFont(profile.fontFamily.isEmpty() ? "PowTTY Mono" : profile.fontFamily));
+        m_fontSizeSpinBox->setValue(profile.fontSize > 0 ? profile.fontSize : 10);
     }
 }
 
@@ -230,6 +249,8 @@ SessionProfile MainWindow::currentProfileFromUi() const
     profile.scrollbackLines = m_scrollbackSpinBox->value();
     profile.useTls = m_tlsCheckBox->isChecked();
     profile.useUtf8 = m_utf8CheckBox->isChecked();
+    profile.fontFamily = m_fontComboBox->currentFont().family();
+    profile.fontSize = m_fontSizeSpinBox->value();
     return profile;
 }
 

@@ -20,6 +20,8 @@ struct SessionProfile {
     int scrollbackLines = 5000;
     bool useTls = true;
     bool useUtf8 = true;
+    QString fontFamily = "PowTTY Mono";
+    int fontSize = 10;
 };
 
 class ProfileManager {

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(powwow VERSION 1.3.0 LANGUAGES C CXX)
+project(powwow VERSION 2.0.0 LANGUAGES C CXX)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
@@ -138,7 +138,7 @@ if(NOT WIN32)
     install(TARGETS powwow powwow-muc powwow-movieplay DESTINATION bin)
 endif()
 
-# Qt6 GUI Application (Ubuntu, macOS, Windows)
+# Qt6 GUI Application (PowTTY)
 if(BUILD_GUI)
     find_package(Qt6 COMPONENTS Core Widgets Network QUIET)
     if(Qt6_FOUND)
@@ -159,51 +159,61 @@ if(BUILD_GUI)
             gui/terminalwidget.h
             gui/profilemanager.cpp
             gui/profilemanager.h
+            gui/resources.qrc
         )
 
-        if(APPLE)
-            add_executable(powwow-gui MACOSX_BUNDLE ${GUI_SOURCES})
-        else()
-            add_executable(powwow-gui ${GUI_SOURCES})
+        if(WIN32)
+            list(APPEND GUI_SOURCES gui/powtty.rc)
         endif()
 
-        target_link_libraries(powwow-gui PRIVATE
+        if(APPLE)
+            add_executable(powtty MACOSX_BUNDLE ${GUI_SOURCES})
+            set_target_properties(powtty PROPERTIES
+                MACOSX_BUNDLE_BUNDLE_NAME "PowTTY"
+                MACOSX_BUNDLE_GUI_IDENTIFIER "org.mume.powtty"
+                MACOSX_BUNDLE_ICON_FILE "icon.ico"
+            )
+        else()
+            add_executable(powtty ${GUI_SOURCES})
+        endif()
+
+        target_link_libraries(powtty PRIVATE
             Qt6::Core
             Qt6::Widgets
             Qt6::Network
         )
 
-        install(TARGETS powwow-gui DESTINATION bin)
+        install(TARGETS powtty DESTINATION bin)
 
         # Deployment step using macdeployqt / windeployqt in CMake install/post-build
         if(WIN32)
             find_program(WINDEPLOYQT_EXECUTABLE windeployqt HINTS ${Qt6_DIR}/../../../bin)
             if(WINDEPLOYQT_EXECUTABLE)
-                add_custom_command(TARGET powwow-gui POST_BUILD
-                    COMMAND ${WINDEPLOYQT_EXECUTABLE} --no-compiler-runtime $<TARGET_FILE:powwow-gui>
+                add_custom_command(TARGET powtty POST_BUILD
+                    COMMAND ${WINDEPLOYQT_EXECUTABLE} --no-compiler-runtime $<TARGET_FILE:powtty>
                     COMMENT "Running windeployqt..."
                 )
             endif()
         elseif(APPLE)
             find_program(MACDEPLOYQT_EXECUTABLE macdeployqt HINTS ${Qt6_DIR}/../../../bin)
             if(MACDEPLOYQT_EXECUTABLE)
-                add_custom_command(TARGET powwow-gui POST_BUILD
-                    COMMAND ${MACDEPLOYQT_EXECUTABLE} $<TARGET_BUNDLE_DIR:powwow-gui> -always-overwrite
+                add_custom_command(TARGET powtty POST_BUILD
+                    COMMAND ${MACDEPLOYQT_EXECUTABLE} $<TARGET_BUNDLE_DIR:powtty> -always-overwrite
                     COMMENT "Running macdeployqt..."
                 )
             endif()
         endif()
     else()
-        message(STATUS "Qt6 not found. Skipping powwow-gui build.")
+        message(STATUS "Qt6 not found. Skipping powtty build.")
     endif()
 endif()
 
 # CPack Configuration
-set(CPACK_PACKAGE_NAME "powwow")
-set(CPACK_PACKAGE_VENDOR "Powwow MUD Client")
+set(CPACK_PACKAGE_NAME "powtty")
+set(CPACK_PACKAGE_VENDOR "PowTTY MUD Client")
 set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Powwow MUD client and Qt GUI launcher")
-set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/nschimme/powwow")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "PowTTY MUD client and Qt launcher")
+set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/MUME/PowTTY")
 
 if(WIN32)
     set(CPACK_GENERATOR "ZIP;NSIS")
