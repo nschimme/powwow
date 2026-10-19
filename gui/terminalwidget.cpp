@@ -11,6 +11,14 @@
 
 // Telnet Protocol Constants
 static const uint8_t TN_SE   = 240;
+static const uint8_t TN_NOP  = 241;
+static const uint8_t TN_DM   = 242;
+static const uint8_t TN_BRK  = 243;
+static const uint8_t TN_IP   = 244;
+static const uint8_t TN_AO   = 245;
+static const uint8_t TN_AYT  = 246;
+static const uint8_t TN_EC   = 247;
+static const uint8_t TN_EL   = 248;
 static const uint8_t TN_GA   = 249;
 static const uint8_t TN_SB   = 250;
 static const uint8_t TN_WILL = 251;
@@ -151,6 +159,8 @@ void TerminalWidget::processTelnetStream(const QByteArray &data)
         case TN_NORMAL:
             if (b == TN_IAC) {
                 m_telnetState = TN_IAC;
+            } else if (b == 0 || (b < 32 && b != '\n' && b != '\r' && b != '\t' && b != '\b' && b != 27)) {
+                // Ignore non-printable control characters (e.g. U+0001, U+0002, NULL bytes)
             } else {
                 cleanData.append(static_cast<char>(b));
             }
@@ -172,6 +182,7 @@ void TerminalWidget::processTelnetStream(const QByteArray &data)
                 m_suboptBuffer.clear();
                 m_telnetState = TN_SB;
             } else {
+                // Single-byte IAC commands (e.g. NOP, GA)
                 m_telnetState = TN_NORMAL;
             }
             break;
@@ -241,7 +252,16 @@ void TerminalWidget::processTelnetStream(const QByteArray &data)
     }
 
     if (!cleanData.isEmpty()) {
-        QString text = QString::fromUtf8(cleanData);
+        QString text;
+        if (m_profile.useUtf8) {
+            text = QString::fromUtf8(cleanData);
+            // Fallback to ISO-8859-1 if UTF-8 decoding generated replacement characters
+            if (text.contains(QChar(0xFFFD))) {
+                text = QString::fromLatin1(cleanData);
+            }
+        } else {
+            text = QString::fromLatin1(cleanData);
+        }
         appendAnsiText(text);
     }
 }
@@ -265,12 +285,13 @@ bool TerminalWidget::eventFilter(QObject *watched, QEvent *event)
             return QWidget::eventFilter(watched, event);
         }
 
-        // Handle Paste (Ctrl+V / Cmd+V) to send clipboard text to server
+        // Handle Paste (Ctrl+V / Cmd+V) to send clipboard text to server and echo
         if (keyEvent->matches(QKeySequence::Paste)) {
             if (m_socket->state() == QAbstractSocket::ConnectedState) {
                 QString clipText = QGuiApplication::clipboard()->text();
                 if (!clipText.isEmpty()) {
                     m_socket->write(clipText.toUtf8());
+                    appendAnsiText(clipText);
                 }
             }
             return true;
@@ -287,21 +308,30 @@ void TerminalWidget::sendKeyToSocket(QKeyEvent *keyEvent)
     if (m_socket->state() != QAbstractSocket::ConnectedState) return;
 
     QByteArray data;
+    QString echoText;
+
     if (keyEvent->key() == Qt::Key_Return || keyEvent->key() == Qt::Key_Enter) {
         data = "\r\n";
+        echoText = "\n";
     } else if (keyEvent->key() == Qt::Key_Backspace) {
         data = "\b";
+        echoText = "\b";
     } else if (keyEvent->key() == Qt::Key_Tab) {
         data = "\t";
+        echoText = "\t";
     } else {
         QString text = keyEvent->text();
         if (!text.isEmpty()) {
             data = text.toUtf8();
+            echoText = text;
         }
     }
 
     if (!data.isEmpty()) {
         m_socket->write(data);
+        if (!echoText.isEmpty()) {
+            appendAnsiText(echoText);
+        }
     }
 }
 
@@ -345,20 +375,23 @@ void TerminalWidget::appendAnsiText(const QString &text)
 
         // Output raw text before escape sequence
         while (pos < matchStart) {
-            if (text.at(pos) == '\r') {
+            QChar ch = text.at(pos);
+            if (ch == '\r') {
                 if (pos + 1 < text.length() && text.at(pos + 1) == '\n') {
-                    // Skip \r when followed by \n; the upcoming \n will handle insertion
+                    // Skip \r when followed by \n
                 } else {
                     cursor.movePosition(QTextCursor::StartOfLine);
                 }
-            } else if (text.at(pos) == '\n') {
+            } else if (ch == '\n') {
                 cursor.movePosition(QTextCursor::End);
                 cursor.insertText("\n", m_currentFormat);
-            } else if (text.at(pos) == '\b') {
+            } else if (ch == '\b') {
                 cursor.deletePreviousChar();
+            } else if (ch.unicode() < 32 && ch != '\t') {
+                // Skip unprintable ASCII control characters
             } else {
                 cursor.movePosition(QTextCursor::End);
-                cursor.insertText(text.at(pos), m_currentFormat);
+                cursor.insertText(ch, m_currentFormat);
             }
             pos++;
         }
