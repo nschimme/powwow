@@ -163,7 +163,7 @@ void TerminalWidget::processTelnetStream(const QByteArray &data)
             if (b == TN_IAC) {
                 m_telnetState = TN_IAC;
             } else if (b == 0 || (b < 32 && b != '\n' && b != '\r' && b != '\t' && b != '\b' && b != 27)) {
-                // Ignore non-printable control characters
+                // Ignore non-printable control bytes
             } else {
                 cleanData.append(static_cast<char>(b));
             }
@@ -185,6 +185,7 @@ void TerminalWidget::processTelnetStream(const QByteArray &data)
                 m_suboptBuffer.clear();
                 m_telnetState = TN_SB;
             } else {
+                // Ignore single-byte Telnet commands (GA, NOP, etc.)
                 m_telnetState = TN_NORMAL;
             }
             break;
@@ -289,7 +290,6 @@ bool TerminalWidget::eventFilter(QObject *watched, QEvent *event)
                 QString clipText = QGuiApplication::clipboard()->text();
                 if (!clipText.isEmpty()) {
                     m_socket->write(clipText.toUtf8());
-                    appendAnsiText(clipText);
                 }
             }
             return true;

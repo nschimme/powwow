@@ -18,7 +18,7 @@ struct SessionProfile {
     QString editor = defaultPlatformEditor();
     QString pager = defaultPlatformPager();
     int scrollbackLines = 5000;
-    bool useTls = true;
+    bool useTls = false;
     bool useUtf8 = true;
     QString fontFamily = "PowTTY Mono";
     int fontSize = 10;

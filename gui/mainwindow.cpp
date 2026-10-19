@@ -183,7 +183,7 @@ void MainWindow::onSessionSelected(int index)
         m_editorEdit->setText(defaultPlatformEditor());
         m_pagerEdit->setText(defaultPlatformPager());
         m_scrollbackSpinBox->setValue(5000);
-        m_tlsCheckBox->setChecked(true);
+        m_tlsCheckBox->setChecked(false);
         m_utf8CheckBox->setChecked(true);
         m_fontComboBox->setCurrentFont(QFont("PowTTY Mono"));
         m_fontSizeSpinBox->setValue(10);

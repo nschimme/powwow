@@ -86,7 +86,7 @@ SessionProfile ProfileManager::loadSession(const QString &name) const
         profile.editor = settings.value("editor", defaultPlatformEditor()).toString();
         profile.pager = settings.value("pager", defaultPlatformPager()).toString();
         profile.scrollbackLines = settings.value("scrollbackLines", 5000).toInt();
-        profile.useTls = settings.value("useTls", true).toBool();
+        profile.useTls = settings.value("useTls", false).toBool();
         profile.useUtf8 = settings.value("useUtf8", true).toBool();
         profile.fontFamily = settings.value("fontFamily", "PowTTY Mono").toString();
         profile.fontSize = settings.value("fontSize", 10).toInt();
