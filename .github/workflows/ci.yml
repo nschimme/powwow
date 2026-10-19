@@ -39,8 +39,8 @@ jobs:
           path: build/*.tar.gz
 
   build-macos:
-    name: Build (macos-latest)
-    runs-on: macos-latest
+    name: Build (macos-13)
+    runs-on: macos-13
     steps:
       - uses: actions/checkout@v4
 
