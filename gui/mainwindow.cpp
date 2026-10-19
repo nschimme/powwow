@@ -112,6 +112,10 @@ void MainWindow::setupUi()
     m_tlsCheckBox = new QCheckBox(tr("Enable TLS Encryption"), optionsGroupBox);
     formLayout->addRow(tr("Security:"), m_tlsCheckBox);
 
+    m_utf8CheckBox = new QCheckBox(tr("Enable UTF-8 Encoding"), optionsGroupBox);
+    m_utf8CheckBox->setChecked(true);
+    formLayout->addRow(tr("Encoding:"), m_utf8CheckBox);
+
     optionsLayout->addLayout(formLayout);
     optionsLayout->addStretch();
 
@@ -170,6 +174,7 @@ void MainWindow::onSessionSelected(int index)
         m_pagerEdit->setText(defaultPlatformPager());
         m_scrollbackSpinBox->setValue(5000);
         m_tlsCheckBox->setChecked(false);
+        m_utf8CheckBox->setChecked(true);
     } else {
         SessionProfile profile = m_profileManager.loadSession(sessionName);
         m_sessionNameEdit->setText(profile.name);
@@ -180,6 +185,7 @@ void MainWindow::onSessionSelected(int index)
         m_pagerEdit->setText(profile.pager.isEmpty() ? defaultPlatformPager() : profile.pager);
         m_scrollbackSpinBox->setValue(profile.scrollbackLines > 0 ? profile.scrollbackLines : 5000);
         m_tlsCheckBox->setChecked(profile.useTls);
+        m_utf8CheckBox->setChecked(profile.useUtf8);
     }
 }
 
@@ -228,7 +234,7 @@ SessionProfile MainWindow::currentProfileFromUi() const
     profile.pager = m_pagerEdit->text().trimmed().isEmpty() ? defaultPlatformPager() : m_pagerEdit->text().trimmed();
     profile.scrollbackLines = m_scrollbackSpinBox->value();
     profile.useTls = m_tlsCheckBox->isChecked();
-    profile.useUtf8 = true; // UTF-8 enabled by default
+    profile.useUtf8 = m_utf8CheckBox->isChecked();
     return profile;
 }
 

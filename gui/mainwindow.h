@@ -52,6 +52,7 @@ private:
     QPushButton *m_browsePagerButton;
     QSpinBox *m_scrollbackSpinBox;
     QCheckBox *m_tlsCheckBox;
+    QCheckBox *m_utf8CheckBox;
     QPushButton *m_saveButton;
     QPushButton *m_deleteButton;
     QPushButton *m_connectButton;

@@ -5,15 +5,22 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QKeyEvent>
+#include <QGuiApplication>
+#include <QClipboard>
 #include <QDebug>
 
 TerminalWidget::TerminalWidget(const SessionProfile &profile, QWidget *parent)
     : QWidget(parent),
       m_profile(profile),
       m_terminalDisplay(new QPlainTextEdit(this)),
-      m_disconnectButton(new QPushButton(tr("Disconnect"), this)),
-      m_process(new QProcess(this))
+      m_disconnectButton(new QPushButton(tr("Disconnect"), this))
 {
+    if (m_profile.useTls) {
+        m_socket = new QSslSocket(this);
+    } else {
+        m_socket = new QTcpSocket(this);
+    }
+
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(0, 0, 0, 0);
 
@@ -45,10 +52,10 @@ TerminalWidget::TerminalWidget(const SessionProfile &profile, QWidget *parent)
     mainLayout->addWidget(m_terminalDisplay);
 
     connect(m_disconnectButton, &QPushButton::clicked, this, &TerminalWidget::stopSession);
-    connect(m_process, &QProcess::readyReadStandardOutput, this, &TerminalWidget::onProcessReadyRead);
-    connect(m_process, &QProcess::readyReadStandardError, this, &TerminalWidget::onProcessReadyRead);
-    connect(m_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this, &TerminalWidget::onProcessFinished);
-    connect(m_process, &QProcess::errorOccurred, this, &TerminalWidget::onProcessError);
+    connect(m_socket, &QTcpSocket::readyRead, this, &TerminalWidget::onSocketReadyRead);
+    connect(m_socket, &QTcpSocket::connected, this, &TerminalWidget::onSocketConnected);
+    connect(m_socket, &QTcpSocket::disconnected, this, &TerminalWidget::onSocketDisconnected);
+    connect(m_socket, &QAbstractSocket::errorOccurred, this, &TerminalWidget::onSocketError);
 }
 
 TerminalWidget::~TerminalWidget()
@@ -56,107 +63,58 @@ TerminalWidget::~TerminalWidget()
     stopSession();
 }
 
-QString TerminalWidget::findPowwowExecutable() const
-{
-    QString appDir = QCoreApplication::applicationDirPath();
-
-    // 1. Same directory as powwow-gui executable
-#ifdef Q_OS_WIN
-    QString localExe = appDir + "/powwow.exe";
-#else
-    QString localExe = appDir + "/powwow";
-#endif
-    if (QFileInfo::exists(localExe)) {
-        return localExe;
-    }
-
-    // 2. Look in build / relative directories
-#ifdef Q_OS_WIN
-    if (QFileInfo::exists(appDir + "/../powwow.exe")) return appDir + "/../powwow.exe";
-#else
-    if (QFileInfo::exists(appDir + "/../powwow")) return appDir + "/../powwow";
-    if (QFileInfo::exists(appDir + "/powwow")) return appDir + "/powwow";
-#endif
-
-    // 3. Fallback to system PATH
-#ifdef Q_OS_WIN
-    return "powwow.exe";
-#else
-    return "powwow";
-#endif
-}
-
 void TerminalWidget::startSession()
 {
-    if (m_process->state() != QProcess::NotRunning) return;
+    if (m_socket->state() != QAbstractSocket::UnconnectedState) return;
 
     updateGridSize();
 
     QString host = m_profile.host.isEmpty() ? "mume.org" : m_profile.host;
     uint16_t port = m_profile.port > 0 ? m_profile.port : 4242;
 
-    appendAnsiText(QString("=== Connecting (%1 %2) [%3x%4] ===\n")
+    appendAnsiText(QString("=== Connecting to %1:%2 [%3x%4] ===\n")
                    .arg(host).arg(port).arg(m_cols).arg(m_lines));
 
-    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
-    if (!m_profile.editor.isEmpty()) {
-        env.insert("POWWOWEDITOR", m_profile.editor);
-        env.insert("EDITOR", m_profile.editor);
-    }
-    if (!m_profile.pager.isEmpty()) {
-        env.insert("POWWOWPAGER", m_profile.pager);
-        env.insert("PAGER", m_profile.pager);
-    }
-    m_process->setProcessEnvironment(env);
-
-    QString program = findPowwowExecutable();
-    QStringList arguments;
-
     if (m_profile.useTls) {
-        arguments << "--tls";
+        QSslSocket *sslSock = qobject_cast<QSslSocket*>(m_socket);
+        if (sslSock) {
+            sslSock->connectToHostEncrypted(host, port);
+        } else {
+            m_socket->connectToHost(host, port);
+        }
+    } else {
+        m_socket->connectToHost(host, port);
     }
-
-    // Pass .pow profile file if specified and exists
-    if (!m_profile.powFilePath.isEmpty() && QFileInfo::exists(m_profile.powFilePath)) {
-        arguments << m_profile.powFilePath;
-    }
-
-    arguments << host << QString::number(port);
-
-    m_process->start(program, arguments);
 }
 
 void TerminalWidget::stopSession()
 {
-    if (m_process->state() != QProcess::NotRunning) {
-        m_process->terminate();
-        if (!m_process->waitForFinished(1000)) {
-            m_process->kill();
-        }
+    if (m_socket->state() != QAbstractSocket::UnconnectedState) {
+        m_socket->disconnectFromHost();
     }
 }
 
-void TerminalWidget::onProcessReadyRead()
+void TerminalWidget::onSocketConnected()
 {
-    QByteArray data = m_process->readAllStandardOutput();
-    data += m_process->readAllStandardError();
-    if (!data.isEmpty()) {
-        QString text = QString::fromUtf8(data);
-        appendAnsiText(text);
-    }
+    appendAnsiText("\n*** Connected to server ***\n\n");
 }
 
-void TerminalWidget::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatus)
+void TerminalWidget::onSocketDisconnected()
 {
-    Q_UNUSED(exitCode);
-    Q_UNUSED(exitStatus);
     appendAnsiText("\n=== Session Disconnected ===\n");
 }
 
-void TerminalWidget::onProcessError(QProcess::ProcessError error)
+void TerminalWidget::onSocketError()
 {
-    if (error == QProcess::FailedToStart) {
-        appendAnsiText(QString("\n=== Failed to start powwow executable (%1) ===\n").arg(findPowwowExecutable()));
+    appendAnsiText(QString("\n=== Socket Error: %1 ===\n").arg(m_socket->errorString()));
+}
+
+void TerminalWidget::onSocketReadyRead()
+{
+    QByteArray data = m_socket->readAll();
+    if (!data.isEmpty()) {
+        QString text = QString::fromUtf8(data);
+        appendAnsiText(text);
     }
 }
 
@@ -164,15 +122,33 @@ bool TerminalWidget::eventFilter(QObject *watched, QEvent *event)
 {
     if (watched == m_terminalDisplay && event->type() == QEvent::KeyPress) {
         QKeyEvent *keyEvent = static_cast<QKeyEvent *>(event);
-        sendKeyToProcess(keyEvent);
+
+        // Allow standard Copy (Ctrl+C / Cmd+C), SelectAll (Ctrl+A / Cmd+A)
+        if (keyEvent->matches(QKeySequence::Copy) ||
+            keyEvent->matches(QKeySequence::SelectAll)) {
+            return QWidget::eventFilter(watched, event);
+        }
+
+        // Handle Paste (Ctrl+V / Cmd+V) to send clipboard text to server
+        if (keyEvent->matches(QKeySequence::Paste)) {
+            if (m_socket->state() == QAbstractSocket::ConnectedState) {
+                QString clipText = QGuiApplication::clipboard()->text();
+                if (!clipText.isEmpty()) {
+                    m_socket->write(clipText.toUtf8());
+                }
+            }
+            return true;
+        }
+
+        sendKeyToSocket(keyEvent);
         return true;
     }
     return QWidget::eventFilter(watched, event);
 }
 
-void TerminalWidget::sendKeyToProcess(QKeyEvent *keyEvent)
+void TerminalWidget::sendKeyToSocket(QKeyEvent *keyEvent)
 {
-    if (m_process->state() != QProcess::Running) return;
+    if (m_socket->state() != QAbstractSocket::ConnectedState) return;
 
     QByteArray data;
     if (keyEvent->key() == Qt::Key_Return || keyEvent->key() == Qt::Key_Enter) {
@@ -189,7 +165,7 @@ void TerminalWidget::sendKeyToProcess(QKeyEvent *keyEvent)
     }
 
     if (!data.isEmpty()) {
-        m_process->write(data);
+        m_socket->write(data);
     }
 }
 

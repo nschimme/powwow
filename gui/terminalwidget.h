@@ -4,7 +4,8 @@
 #include <QWidget>
 #include <QPlainTextEdit>
 #include <QPushButton>
-#include <QProcess>
+#include <QTcpSocket>
+#include <QSslSocket>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QTextCharFormat>
@@ -27,9 +28,10 @@ signals:
     void sessionClosed();
 
 private slots:
-    void onProcessReadyRead();
-    void onProcessFinished(int exitCode, QProcess::ExitStatus exitStatus);
-    void onProcessError(QProcess::ProcessError error);
+    void onSocketReadyRead();
+    void onSocketConnected();
+    void onSocketDisconnected();
+    void onSocketError();
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
@@ -38,14 +40,13 @@ protected:
 private:
     void appendAnsiText(const QString &text);
     void parseSgrCode(const QString &codeStr);
-    void sendKeyToProcess(QKeyEvent *keyEvent);
+    void sendKeyToSocket(QKeyEvent *keyEvent);
     void updateGridSize();
-    QString findPowwowExecutable() const;
 
     SessionProfile m_profile;
     QPlainTextEdit *m_terminalDisplay;
     QPushButton *m_disconnectButton;
-    QProcess *m_process;
+    QTcpSocket *m_socket;
 
     QTextCharFormat m_defaultFormat;
     QTextCharFormat m_currentFormat;
