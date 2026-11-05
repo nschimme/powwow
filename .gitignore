@@ -19,3 +19,6 @@ Makefile.in
 /missing
 /stamp-h1
 /test-driver
+build/
+build/*
+/build/

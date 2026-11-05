@@ -34,11 +34,13 @@
 #include <errno.h>
 #include <time.h>
 
-#include <sys/param.h>
+#ifndef _WIN32
+#  include <sys/param.h>
+#  include <sys/wait.h>
+#endif
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/time.h>
-#include <sys/wait.h>
 #include <memory.h>
 #include <unistd.h>
 
