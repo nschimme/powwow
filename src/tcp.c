@@ -449,15 +449,21 @@ static void tcp_set_fdmode(int fd)
         errmsg("setsockopt(TCP_NODELAY) failed");
 
     /* TCP keep-alive */
+#ifdef _WIN32
+    if (setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, (const char *)&opt, sizeof(opt)))
+        errmsg("setsockopt(SO_KEEPALIVE) failed");
+#else
     if (setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(opt)))
         errmsg("setsockopt(SO_KEEPALIVE) failed");
+#endif
 
     /*
      * Then, close-on-exec:
      * we don't want children to inherit the socket!
      */
-
+#ifndef _WIN32
     fcntl(fd, F_SETFD, FD_CLOEXEC);
+#endif
 }
 
 

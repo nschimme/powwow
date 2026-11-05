@@ -3,8 +3,7 @@
 
 #include <QWidget>
 #include <QPlainTextEdit>
-#include <QTcpSocket>
-#include <QSslSocket>
+#include <QSocketNotifier>
 #include <QVBoxLayout>
 #include <QTextCharFormat>
 
@@ -29,48 +28,28 @@ signals:
     void sessionClosed();
 
 private slots:
-    void onSocketReadyRead();
-    void onSocketConnected();
-    void onSocketDisconnected();
-    void onSocketError();
+    void onSocketActivated(int socket);
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
 
 private:
-    void processTelnetStream(const QByteArray &data);
-    void sendTelnetOption(uint8_t command, uint8_t option);
-    void sendWindowSize();
     void appendAnsiText(const QString &text);
     void parseSgrCode(const QString &codeStr);
-    void sendKeyToSocket(QKeyEvent *keyEvent);
+    void sendKeyToSession(QKeyEvent *keyEvent);
     void updateGridSize();
 
     SessionProfile m_profile;
     QPlainTextEdit *m_terminalDisplay;
-    QTcpSocket *m_socket;
+    QSocketNotifier *m_notifier = nullptr;
 
     QTextCharFormat m_defaultFormat;
     QTextCharFormat m_currentFormat;
     int m_cols = 80;
     int m_lines = 24;
 
-    bool m_passwordMode = false; // Password prompt input mode
-
-    enum TelnetParserState {
-        STATE_NORMAL,
-        STATE_IAC,
-        STATE_WILL,
-        STATE_WONT,
-        STATE_DO,
-        STATE_DONT,
-        STATE_SB,
-        STATE_SB_IAC
-    };
-    TelnetParserState m_telnetState = STATE_NORMAL;
-    QByteArray m_suboptBuffer;
-    QByteArray m_utf8Buffer;
+    bool m_passwordMode = false;
     QString m_inputLineBuffer;
 
     powwow_session_t *m_powwowSession = nullptr;

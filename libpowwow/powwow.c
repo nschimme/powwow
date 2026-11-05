@@ -177,6 +177,9 @@ bool powwow_is_connected(powwow_session_t *session)
 void powwow_send_line(powwow_session_t *session, const char *line)
 {
     if (!session || !line) return;
+    if (main_connection && !current_connection) {
+        current_connection = main_connection;
+    }
     parse_user_input((char *)line, 1);
 }
 
@@ -201,8 +204,13 @@ void powwow_process_network(powwow_session_t *session)
 {
     (void)session;
     if (main_connection) {
-        char buf[BUFSIZE];
-        tcp_read(main_connection, buf, sizeof(buf));
+        current_connection = main_connection;
+        char buffer[TCP_READ_EXPANSION * BUFSIZE + 2];
+        int got = tcp_read(main_connection, buffer, sizeof(buffer) - 1);
+        if (got > 0) {
+            buffer[got] = '\0';
+            process_remote_input(buffer, got);
+        }
     }
 }
 
