@@ -24,6 +24,8 @@ typedef struct powwow_ui_ops {
     void (*bell)(void *user_data);
     /* Called when connection status changes (connected = true, disconnected = false) */
     void (*connection_status)(void *user_data, bool connected, const char *host, int port);
+    /* Called when line/command should be sent to the server socket */
+    void (*send_server_data)(void *user_data, const char *data, size_t len);
 } powwow_ui_ops_t;
 
 /* Public data structures for GUI/TUI struct inspection */
@@ -90,6 +92,7 @@ bool powwow_is_connected(powwow_session_t *session);
 
 /* Input and engine processing */
 void powwow_send_line(powwow_session_t *session, const char *line);
+void powwow_process_remote(powwow_session_t *session, const char *buf, size_t len);
 void powwow_process_input(powwow_session_t *session, const char *buf, size_t len);
 void powwow_process_network(powwow_session_t *session);
 int  powwow_get_connection_fd(powwow_session_t *session);

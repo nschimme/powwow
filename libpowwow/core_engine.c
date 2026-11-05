@@ -841,7 +841,7 @@ static int grab_prompt(char *linestart, int len, int islast)
     sgr_prompt_start();
 
     /* recognize IAC GA as end-of-prompt marker */
-    if ((current_connection->flags & IDPROMPT)) {
+    if (current_connection && (current_connection->flags & IDPROMPT)) {
 	if ((p = prompt_get_iac()) && p > linestart && p <= linestart+len)
 	    iac_f++, is_iac_prompt = len = p - linestart;
 	else if (!islast)
@@ -1732,10 +1732,17 @@ char *get_next_instr(char *p)
     return p;
 }
 
+#include "ui_hook.h"
+
 static void send_line(char *line, char silent)
 {
     if (!silent && opt_echo) { PRINTF("[%s]\n", line); }
-    tcp_write(current_connection, line);
+    if (current_connection) {
+        tcp_write(current_connection, line);
+    } else {
+        powwow_internal_ui_send_server_data(line, strlen(line));
+        powwow_internal_ui_send_server_data("\r\n", 2);
+    }
 }
 
 

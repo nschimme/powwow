@@ -6,6 +6,7 @@
 
 static int g_display_count = 0;
 static char g_last_displayed[1024] = {0};
+static char g_last_server_data[1024] = {0};
 
 static void test_display_text(void *user_data, const char *text, size_t len)
 {
@@ -14,6 +15,14 @@ static void test_display_text(void *user_data, const char *text, size_t len)
     if (len < sizeof(g_last_displayed)) {
         strncpy(g_last_displayed, text, len);
         g_last_displayed[len] = '\0';
+    }
+}
+
+static void test_send_server_data(void *user_data, const char *data, size_t len)
+{
+    (void)user_data;
+    if (len < sizeof(g_last_server_data)) {
+        strncat(g_last_server_data, data, sizeof(g_last_server_data) - strlen(g_last_server_data) - 1);
     }
 }
 
@@ -71,6 +80,31 @@ static void test_history_callback(const powwow_history_info_t *info, void *user_
     (*count)++;
     assert(info != NULL);
     assert(info->line != NULL);
+}
+
+void test_pipeline(void)
+{
+    powwow_ui_ops_t ops = {
+        .display_text = test_display_text,
+        .send_server_data = test_send_server_data,
+    };
+    powwow_session_t *sess = powwow_session_create(&ops, NULL);
+    assert(sess != NULL);
+
+    memset(g_last_server_data, 0, sizeof(g_last_server_data));
+    /* Test alias expansion and server send */
+    powwow_set_alias(sess, "k", "kill rat", "test");
+    powwow_send_line(sess, "k");
+    assert(strstr(g_last_server_data, "kill rat") != NULL);
+
+    /* Test remote input trigger processing */
+    g_display_count = 0;
+    powwow_set_action(sess, "^A rat bites you!", "#print RAT_ACTION_TRIGGERED", "test");
+    powwow_process_remote(sess, "A rat bites you!\n", strlen("A rat bites you!\n"));
+    assert(g_display_count > 0);
+
+    powwow_session_destroy(sess);
+    printf("Pipeline alias & trigger tests passed!\n");
 }
 
 int main(void)
@@ -149,6 +183,9 @@ int main(void)
 
     /* Clean up */
     powwow_session_destroy(sess);
+
+    /* Run Pipeline Test */
+    test_pipeline();
 
     printf("All extended libpowwow unit tests passed successfully!\n");
     return 0;

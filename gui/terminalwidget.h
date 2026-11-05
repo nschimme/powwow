@@ -71,6 +71,7 @@ private:
     TelnetParserState m_telnetState = STATE_NORMAL;
     QByteArray m_suboptBuffer;
     QByteArray m_utf8Buffer;
+    QString m_inputLineBuffer;
 
     powwow_session_t *m_powwowSession = nullptr;
 

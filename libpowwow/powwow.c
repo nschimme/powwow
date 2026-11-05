@@ -54,6 +54,13 @@ void powwow_internal_ui_bell(void)
     }
 }
 
+void powwow_internal_ui_send_server_data(const char *data, size_t len)
+{
+    if (g_ui_ops.send_server_data) {
+        g_ui_ops.send_server_data(g_ui_user_data, data, len);
+    }
+}
+
 static void powwow_init_core_engine(void)
 {
     if (g_initialized) return;
@@ -173,11 +180,21 @@ void powwow_send_line(powwow_session_t *session, const char *line)
     parse_user_input((char *)line, 1);
 }
 
-void powwow_process_input(powwow_session_t *session, const char *buf, size_t len)
+void powwow_process_remote(powwow_session_t *session, const char *buf, size_t len)
 {
     (void)session;
-    (void)buf;
-    (void)len;
+    if (!buf || len == 0) return;
+    char *copy = (char *)malloc(len + 1);
+    if (!copy) return;
+    memcpy(copy, buf, len);
+    copy[len] = '\0';
+    process_remote_input(copy, len);
+    free(copy);
+}
+
+void powwow_process_input(powwow_session_t *session, const char *buf, size_t len)
+{
+    powwow_process_remote(session, buf, len);
 }
 
 void powwow_process_network(powwow_session_t *session)

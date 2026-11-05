@@ -46,6 +46,13 @@ TerminalWidget::TerminalWidget(const SessionProfile &profile, QWidget *parent)
         auto *self = static_cast<TerminalWidget *>(userData);
         self->appendAnsiText(QString::fromUtf8(text, len));
     };
+    ops.send_server_data = [](void *userData, const char *data, size_t len) {
+        if (!userData || !data || len == 0) return;
+        auto *self = static_cast<TerminalWidget *>(userData);
+        if (self->m_socket && self->m_socket->state() == QAbstractSocket::ConnectedState) {
+            self->m_socket->write(data, len);
+        }
+    };
     m_powwowSession = powwow_session_create(&ops, this);
     if (m_profile.useTls) {
         m_socket = new QSslSocket(this);
@@ -314,7 +321,12 @@ void TerminalWidget::processTelnetStream(const QByteArray &data)
             if (text.contains("password", Qt::CaseInsensitive) || text.contains("passcode", Qt::CaseInsensitive)) {
                 m_passwordMode = true;
             }
-            appendAnsiText(text);
+            if (m_powwowSession) {
+                // Route through libpowwow trigger evaluation
+                powwow_process_remote(m_powwowSession, text.toUtf8().constData(), text.toUtf8().length());
+            } else {
+                appendAnsiText(text);
+            }
         }
     }
 }
@@ -369,23 +381,37 @@ void TerminalWidget::sendKeyToSocket(QKeyEvent *keyEvent)
     QString echoText;
 
     if (keyEvent->key() == Qt::Key_Return || keyEvent->key() == Qt::Key_Enter) {
-        data = "\r\n";
-        echoText = "\n";
-        if (m_powwowSession && !m_passwordMode) {
-            // Also register line in history
-            // powwow_add_history(m_powwowSession, ...);
+        QString lineToExecute = m_inputLineBuffer;
+        m_inputLineBuffer.clear();
+
+        if (m_passwordMode) {
+            data = "\r\n";
+            echoText = "\n";
+            m_socket->write(lineToExecute.toUtf8() + "\r\n");
+            appendAnsiText("\n");
+            m_passwordMode = false;
+            return;
         }
-        m_passwordMode = false; // Reset password mode on submit
+
+        appendAnsiText("\n");
+        if (m_powwowSession) {
+            powwow_add_history(m_powwowSession, lineToExecute.toUtf8().constData());
+            powwow_send_line(m_powwowSession, lineToExecute.toUtf8().constData());
+        } else {
+            m_socket->write(lineToExecute.toUtf8() + "\r\n");
+        }
+        return;
     } else if (keyEvent->key() == Qt::Key_Backspace) {
-        data = "\b";
+        if (!m_inputLineBuffer.isEmpty()) {
+            m_inputLineBuffer.chop(1);
+        }
         echoText = "\b";
     } else if (keyEvent->key() == Qt::Key_Tab) {
-        data = "\t";
         echoText = "\t";
     } else {
         QString text = keyEvent->text();
         if (!text.isEmpty()) {
-            data = text.toUtf8();
+            m_inputLineBuffer.append(text);
             if (m_passwordMode) {
                 echoText = "*";
             } else {
@@ -394,11 +420,8 @@ void TerminalWidget::sendKeyToSocket(QKeyEvent *keyEvent)
         }
     }
 
-    if (!data.isEmpty()) {
-        m_socket->write(data);
-        if (!echoText.isEmpty()) {
-            appendAnsiText(echoText);
-        }
+    if (!echoText.isEmpty()) {
+        appendAnsiText(echoText);
     }
 }
 

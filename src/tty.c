@@ -1175,6 +1175,9 @@ void tty_flush(void)
 {
     size_t n = tty_write_state.used;
     char *data = tty_write_state.data;
+    if (n > 0) {
+        powwow_internal_ui_display_text(data, n);
+    }
     while (n > 0) {
         ssize_t r;
         for (;;) {
