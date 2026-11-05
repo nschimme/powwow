@@ -1,5 +1,5 @@
 #include "terminalwidget.h"
-#include "structdialog.h"
+#include "mudconfigdialog.h"
 #include <QToolBar>
 #include <QRegularExpression>
 #include <QScrollBar>
@@ -357,7 +357,7 @@ bool TerminalWidget::eventFilter(QObject *watched, QEvent *event)
 
 void TerminalWidget::openInspector()
 {
-    StructDialog dlg(m_powwowSession, this);
+    MudConfigDialog dlg(m_powwowSession, this);
     dlg.exec();
 }
 

@@ -1,5 +1,5 @@
-#ifndef STRUCTDIALOG_H
-#define STRUCTDIALOG_H
+#ifndef MUDCONFIGDIALOG_H
+#define MUDCONFIGDIALOG_H
 
 #include <QDialog>
 #include <QTableWidget>
@@ -8,10 +8,10 @@
 #include <QPushButton>
 #include "powwow/powwow.h"
 
-class StructDialog : public QDialog {
+class MudConfigDialog : public QDialog {
     Q_OBJECT
 public:
-    explicit StructDialog(powwow_session_t *session, QWidget *parent = nullptr);
+    explicit MudConfigDialog(powwow_session_t *session, QWidget *parent = nullptr);
     void refreshData();
 
 private slots:
@@ -32,4 +32,4 @@ private:
     QTableWidget *m_historyTable;
 };
 
-#endif // STRUCTDIALOG_H
+#endif // MUDCONFIGDIALOG_H

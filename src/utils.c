@@ -10,32 +10,25 @@
  *
  */
 
-#if defined(__APPLE__) || defined(__DARWIN__) || defined(USE_BSD_LIKE)
-#  ifndef _DARWIN_C_SOURCE
-#    define _DARWIN_C_SOURCE 1
-#  endif
-#  ifndef _BSD_SOURCE
-#    define _BSD_SOURCE
-#  endif
-#  ifndef __BSD_VISIBLE
-#    define __BSD_VISIBLE
-#  endif
-#endif
-
-#include <signal.h>
 #include "defines.h"
 
-#if defined(__has_include)
-#  if __has_include(<alloca.h>)
-#    include <alloca.h>
-#  endif
+#ifdef USE_BSD_LIKE
+/* Needed for SIGWINCH on OpenBSD. */
+# define _BSD_SOURCE
+/* Needed for SIGWINCH on FreeBSD. */
+# define __BSD_VISIBLE
+/* Needed for SIGWINCH on Darwin. */
+# define _DARWIN_C_SOURCE 1
 #endif
+
+#include <alloca.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 #include <ctype.h>
 #include <unistd.h>
+#include <signal.h>
 #include <time.h>
 
 #include "main.h"
@@ -1158,13 +1151,13 @@ int read_settings(void)
             }
 	    *--p = ' ';
 	}
-        /* connections were ISO-8859-1 unless --utf8 was given (a
-         * #host without it) when files were not UTF-8 yet */
-        bool saved_default_utf8 = default_utf8;
+        /* connections did not use TLS unless --tls was given (a #host
+         * without it) when files were not UTF-8 yet */
+        bool saved_default_tls = default_tls;
         if (savefilever < UTF8_SAVEFILEVER)
-            default_utf8 = false;
+            default_tls = false;
 	parse_user_input(cmd, 1);
-        default_utf8 = saved_default_utf8;
+        default_tls = saved_default_tls;
         if (error != 0) {
             PRINTF("#error: loading save-file failed\n");
             break;

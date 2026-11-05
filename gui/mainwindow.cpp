@@ -1,6 +1,6 @@
 #include "mainwindow.h"
 #include "terminalwidget.h"
-#include "structdialog.h"
+#include "mudconfigdialog.h"
 
 #include <QHBoxLayout>
 #include <QVBoxLayout>
@@ -174,7 +174,7 @@ void MainWindow::onInspectStructs()
         sess = powwow_session_create(&ops, nullptr);
         created = true;
     }
-    StructDialog dlg(sess, this);
+    MudConfigDialog dlg(sess, this);
     dlg.exec();
     if (created && sess) {
         powwow_session_destroy(sess);

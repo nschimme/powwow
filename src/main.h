@@ -47,6 +47,7 @@ extern char powwow_dir[BUFSIZE];
 /* the charset of connections without --utf8 or --latin1: UTF-8, unless
  * powwow was started with --latin1 */
 extern bool default_utf8;
+extern bool default_tls;
 
 #define UTF8_FLAG   "--utf8"
 #define LATIN1_FLAG "--latin1"

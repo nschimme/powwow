@@ -145,6 +145,11 @@ char opt_autoclear = 1;	/* 1 = clear input line before executing commands
 
 struct hostinfo hostinfo;
 bool default_utf8 = true;
+#ifdef USE_TLS
+bool default_tls = true;
+#else
+bool default_tls = false;
+#endif
 
 char powwow_dir[BUFSIZE];   /* default path to definition files */
 char deffile[BUFSIZE];             /* name and path of definition file */

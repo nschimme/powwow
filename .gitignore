@@ -20,7 +20,3 @@ Makefile.in
 /stamp-h1
 /test-driver
 build/
-build/*
-/build/
-/build/
-build/

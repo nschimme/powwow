@@ -1,10 +1,10 @@
-#include "structdialog.h"
+#include "mudconfigdialog.h"
 #include <QHeaderView>
 #include <QHBoxLayout>
 #include <QInputDialog>
 #include <QMessageBox>
 
-StructDialog::StructDialog(powwow_session_t *session, QWidget *parent)
+MudConfigDialog::MudConfigDialog(powwow_session_t *session, QWidget *parent)
     : QDialog(parent), m_session(session)
 {
     setWindowTitle(tr("Powwow Struct Inspector"));
@@ -30,8 +30,8 @@ StructDialog::StructDialog(powwow_session_t *session, QWidget *parent)
     aliasLayout->addLayout(aliasBtnLayout);
     m_tabs->addTab(aliasPage, tr("Aliases"));
 
-    connect(addAliasBtn, &QPushButton::clicked, this, &StructDialog::onAddAlias);
-    connect(delAliasBtn, &QPushButton::clicked, this, &StructDialog::onDeleteAlias);
+    connect(addAliasBtn, &QPushButton::clicked, this, &MudConfigDialog::onAddAlias);
+    connect(delAliasBtn, &QPushButton::clicked, this, &MudConfigDialog::onDeleteAlias);
 
     // Actions / Triggers Tab
     QWidget *actionPage = new QWidget(this);
@@ -49,8 +49,8 @@ StructDialog::StructDialog(powwow_session_t *session, QWidget *parent)
     actionLayout->addLayout(actionBtnLayout);
     m_tabs->addTab(actionPage, tr("Actions / Triggers"));
 
-    connect(addActionBtn, &QPushButton::clicked, this, &StructDialog::onAddAction);
-    connect(delActionBtn, &QPushButton::clicked, this, &StructDialog::onDeleteAction);
+    connect(addActionBtn, &QPushButton::clicked, this, &MudConfigDialog::onAddAction);
+    connect(delActionBtn, &QPushButton::clicked, this, &MudConfigDialog::onDeleteAction);
 
     // Variables Tab
     QWidget *varPage = new QWidget(this);
@@ -68,8 +68,8 @@ StructDialog::StructDialog(powwow_session_t *session, QWidget *parent)
     varLayout->addLayout(varBtnLayout);
     m_tabs->addTab(varPage, tr("Variables"));
 
-    connect(addVarBtn, &QPushButton::clicked, this, &StructDialog::onAddVariable);
-    connect(delVarBtn, &QPushButton::clicked, this, &StructDialog::onDeleteVariable);
+    connect(addVarBtn, &QPushButton::clicked, this, &MudConfigDialog::onAddVariable);
+    connect(delVarBtn, &QPushButton::clicked, this, &MudConfigDialog::onDeleteVariable);
 
     // Key Binds Tab
     QWidget *bindPage = new QWidget(this);
@@ -97,7 +97,7 @@ StructDialog::StructDialog(powwow_session_t *session, QWidget *parent)
     refreshData();
 }
 
-void StructDialog::refreshData()
+void MudConfigDialog::refreshData()
 {
     if (!m_session) return;
 
@@ -157,7 +157,7 @@ void StructDialog::refreshData()
     }, m_historyTable);
 }
 
-void StructDialog::onAddAlias()
+void MudConfigDialog::onAddAlias()
 {
     bool ok;
     QString name = QInputDialog::getText(this, tr("Add Alias"), tr("Alias Name:"), QLineEdit::Normal, "", &ok);
@@ -170,7 +170,7 @@ void StructDialog::onAddAlias()
     refreshData();
 }
 
-void StructDialog::onDeleteAlias()
+void MudConfigDialog::onDeleteAlias()
 {
     int row = m_aliasTable->currentRow();
     if (row < 0) return;
@@ -179,7 +179,7 @@ void StructDialog::onDeleteAlias()
     refreshData();
 }
 
-void StructDialog::onAddAction()
+void MudConfigDialog::onAddAction()
 {
     bool ok;
     QString pattern = QInputDialog::getText(this, tr("Add Action"), tr("Pattern:"), QLineEdit::Normal, "", &ok);
@@ -192,7 +192,7 @@ void StructDialog::onAddAction()
     refreshData();
 }
 
-void StructDialog::onDeleteAction()
+void MudConfigDialog::onDeleteAction()
 {
     int row = m_actionTable->currentRow();
     if (row < 0) return;
@@ -201,7 +201,7 @@ void StructDialog::onDeleteAction()
     refreshData();
 }
 
-void StructDialog::onAddVariable()
+void MudConfigDialog::onAddVariable()
 {
     bool ok;
     QString name = QInputDialog::getText(this, tr("Set Variable"), tr("Variable Name:"), QLineEdit::Normal, "", &ok);
@@ -214,7 +214,7 @@ void StructDialog::onAddVariable()
     refreshData();
 }
 
-void StructDialog::onDeleteVariable()
+void MudConfigDialog::onDeleteVariable()
 {
     int row = m_varTable->currentRow();
     if (row < 0) return;

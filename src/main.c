@@ -50,6 +50,7 @@ int main(int argc, char **argv)
     static const struct option longopts[] = {
         { "help",    no_argument,       NULL, 'h' },
         { "tls",     optional_argument, NULL, 't' },
+        { "no-tls",  no_argument,       NULL, 'n' },
         { "latin1",  no_argument,       NULL, 'l' },
         { "utf8",    no_argument,       NULL, 'u' },
         { "version", no_argument,       NULL, 'v' },
@@ -57,12 +58,14 @@ int main(int argc, char **argv)
     };
 #endif
     int cmdline_utf8 = -1;      /* --utf8: 1, --latin1: 0 */
+    struct tls_options cmdline_tlsopt = { .use_tls = false };
+    bool cmdline_tls = false;   /* --tls or --no-tls given */
     int nversion = 0;           /* number of --version */
     for (int c;;) {
 #ifdef HAVE_GETOPT_LONG
-        c = getopt_long(argc, argv, "hlt::uv", longopts, NULL);
+        c = getopt_long(argc, argv, "hlnt::uv", longopts, NULL);
 #else
-        c = getopt(argc, argv, "hltT:uv");
+        c = getopt(argc, argv, "hlntT:uv");
 #endif
         if (c == -1)
             break;
@@ -78,12 +81,18 @@ int main(int argc, char **argv)
 #endif
         case 'T': {
             const char *arg = optarg ? optarg : "";
-            if (!parse_tls_flag(&hostinfo.tlsopt, &arg, false)) {
+            if (!parse_tls_flag(&cmdline_tlsopt, &arg, false)) {
                 fprintf(stderr, "invalid TLS options: '%s'\n", optarg);
                 exit(EXIT_FAILURE);
             }
+            cmdline_tls = true;
             break;
         }
+        case 'n':
+            free(cmdline_tlsopt.hostname);
+            cmdline_tlsopt = (struct tls_options){ .use_tls = false };
+            cmdline_tls = true;
+            break;
         case 'l':
             cmdline_utf8 = 0;
             break;
@@ -106,6 +115,10 @@ int main(int argc, char **argv)
 
     default_utf8 = cmdline_utf8 != 0;
     hostinfo.utf8 = default_utf8;
+    if (cmdline_tls)
+        default_tls = cmdline_tlsopt.use_tls;
+    hostinfo.tlsopt = cmdline_tlsopt;
+    hostinfo.tlsopt.use_tls = default_tls;
 
     int nargs = argc - optind;
     if (nargs > 2) {

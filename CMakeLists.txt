@@ -147,7 +147,7 @@ if(NOT WIN32)
     add_executable(test_sgr src/test_sgr.c src/sgr.c)
     add_test(NAME test_sgr COMMAND test_sgr)
 
-    add_executable(test_libpowwow test_libpowwow.c)
+    add_executable(test_libpowwow tests/test_libpowwow.c)
     target_link_libraries(test_libpowwow PRIVATE powwow_core)
     add_test(NAME test_libpowwow COMMAND test_libpowwow)
 
@@ -175,8 +175,8 @@ if(BUILD_GUI)
             gui/terminalwidget.h
             gui/profilemanager.cpp
             gui/profilemanager.h
-            gui/structdialog.cpp
-            gui/structdialog.h
+            gui/mudconfigdialog.cpp
+            gui/mudconfigdialog.h
             gui/resources.qrc
         )
 
