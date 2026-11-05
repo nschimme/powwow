@@ -10,7 +10,11 @@
  *
  */
 
-#include <alloca.h>
+#if defined(__has_include)
+#  if __has_include(<alloca.h>)
+#    include <alloca.h>
+#  endif
+#endif
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,12 +24,47 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <sys/types.h>
-#include <sys/socket.h>
+#ifndef _WIN32
+#  include <sys/socket.h>
+#else
+#  include <winsock2.h>
+#endif
 #include <sys/time.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
-#include <arpa/telnet.h>
+#if defined(__has_include)
+#  if __has_include(<arpa/telnet.h>)
+#    include <arpa/telnet.h>
+#  endif
+#elif !defined(_WIN32)
+#  include <arpa/telnet.h>
+#endif
+
+#ifndef IAC
+#  define IAC 255
+#endif
+#ifndef DONT
+#  define DONT 254
+#endif
+#ifndef DO
+#  define DO 253
+#endif
+#ifndef WONT
+#  define WONT 252
+#endif
+#ifndef WILL
+#  define WILL 251
+#endif
+#ifndef SB
+#  define SB 250
+#endif
+#ifndef SE
+#  define SE 240
+#endif
+#ifndef TELOPT_NAWS
+#  define TELOPT_NAWS 31
+#endif
 
 #include "defines.h"
 

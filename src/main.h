@@ -43,12 +43,10 @@ struct hostinfo {
     bool utf8;			/* UTF-8, else ISO-8859-1 */
 };
 extern struct hostinfo hostinfo;
+extern char powwow_dir[BUFSIZE];
 /* the charset of connections without --utf8 or --latin1: UTF-8, unless
  * powwow was started with --latin1 */
 extern bool default_utf8;
-/* whether connections without --tls or --no-tls use TLS: yes, unless
- * powwow was started with --no-tls or built without TLS support */
-extern bool default_tls;
 
 #define UTF8_FLAG   "--utf8"
 #define LATIN1_FLAG "--latin1"
@@ -61,6 +59,9 @@ extern int olines;		/* previous terminal window size */
 extern int line0, col0;		/* origin of input line */
 
 extern varnode *prompt;		/* $prompt is always set */
+extern varnode *last_line;
+extern param_stack paramstk;
+extern unnamedvar global_var[NUMTOT];
 extern ptr marked_prompt;	/* $prompt with marks added */
 
 #define promptstr    (ptrdata(prompt->str))
