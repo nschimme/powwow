@@ -21,6 +21,12 @@ private slots:
     void onDeleteAction();
     void onAddVariable();
     void onDeleteVariable();
+    void onAddBind();
+    void onDeleteBind();
+    void onAddMark();
+    void onDeleteMark();
+    void onDeleteDelay();
+    void onAddHistory();
 
 private:
     powwow_session_t *m_session;
@@ -29,6 +35,8 @@ private:
     QTableWidget *m_actionTable;
     QTableWidget *m_varTable;
     QTableWidget *m_bindTable;
+    QTableWidget *m_markTable;
+    QTableWidget *m_delayTable;
     QTableWidget *m_historyTable;
 };
 

@@ -89,9 +89,13 @@ set(LIBPOWWOW_SOURCES
     src/utils.c
     src/tcp.c
     src/tls.c
-    src/tty.c
-    src/edit.c
 )
+
+if(WIN32)
+    list(APPEND LIBPOWWOW_SOURCES libpowwow/dummy_tty_win32.c)
+else()
+    list(APPEND LIBPOWWOW_SOURCES src/tty.c src/edit.c)
+endif()
 
 add_library(powwow_core STATIC ${LIBPOWWOW_SOURCES})
 target_include_directories(powwow_core PUBLIC
