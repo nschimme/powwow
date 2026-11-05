@@ -89,13 +89,9 @@ set(LIBPOWWOW_SOURCES
     src/utils.c
     src/tcp.c
     src/tls.c
+    src/tty.c
+    src/edit.c
 )
-
-if(WIN32)
-    list(APPEND LIBPOWWOW_SOURCES libpowwow/dummy_tty_win32.c)
-else()
-    list(APPEND LIBPOWWOW_SOURCES src/tty.c src/edit.c)
-endif()
 
 add_library(powwow_core STATIC ${LIBPOWWOW_SOURCES})
 target_include_directories(powwow_core PUBLIC
@@ -143,20 +139,20 @@ if(NOT WIN32)
         target_link_libraries(powwow-movieplay PRIVATE ncurses)
     endif()
 
-    # Unit Tests
-    enable_testing()
-    add_executable(test_charset src/test_charset.c src/charset.c src/width.c)
-    add_test(NAME test_charset COMMAND test_charset)
-
-    add_executable(test_sgr src/test_sgr.c src/sgr.c)
-    add_test(NAME test_sgr COMMAND test_sgr)
-
-    add_executable(test_libpowwow tests/test_libpowwow.c)
-    target_link_libraries(test_libpowwow PRIVATE powwow_core)
-    add_test(NAME test_libpowwow COMMAND test_libpowwow)
-
     install(TARGETS powwow powwow_core powwow-muc powwow-movieplay DESTINATION bin)
 endif()
+
+# Unit Tests
+enable_testing()
+add_executable(test_charset src/test_charset.c src/charset.c src/width.c)
+add_test(NAME test_charset COMMAND test_charset)
+
+add_executable(test_sgr src/test_sgr.c src/sgr.c)
+add_test(NAME test_sgr COMMAND test_sgr)
+
+add_executable(test_libpowwow tests/test_libpowwow.c)
+target_link_libraries(test_libpowwow PRIVATE powwow_core)
+add_test(NAME test_libpowwow COMMAND test_libpowwow)
 
 # Qt6 GUI Application (PowTTY)
 if(BUILD_GUI)
