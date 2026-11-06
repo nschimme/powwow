@@ -4,6 +4,15 @@
 #include <assert.h>
 #include "powwow/powwow.h"
 
+void test_struct_crud(powwow_session_t *sess);
+void test_eval_and_math(powwow_session_t *sess);
+void test_parameterized_aliases(powwow_session_t *sess);
+void test_triggers_and_actions(powwow_session_t *sess);
+void test_window_size(powwow_session_t *sess);
+void test_advanced_eval(powwow_session_t *sess);
+void test_action_groups_and_status(powwow_session_t *sess);
+void test_session_isolation(void);
+
 static int g_display_count = 0;
 static char g_last_displayed[4096] = {0};
 static char g_last_server_data[4096] = {0};
@@ -245,11 +254,78 @@ int main(void)
     test_parameterized_aliases(sess);
     test_triggers_and_actions(sess);
     test_window_size(sess);
+    test_advanced_eval(sess);
+    test_action_groups_and_status(sess);
 
     powwow_session_destroy(sess);
+
+    test_session_isolation();
 
     printf("==========================================\n");
     printf("All enhanced libpowwow unit tests PASSED!\n");
     printf("==========================================\n");
     return 0;
+}
+
+/* 6. Advanced Calculator & String Operators in Evaluator */
+void test_advanced_eval(powwow_session_t *sess)
+{
+    printf("Testing advanced evaluator features...\n");
+
+    /* Bitwise and hex arithmetic */
+    powwow_send_line(sess, "#(@-20 = #F & #7)");
+    g_display_count = 0;
+    powwow_send_line(sess, "#print (\"HexAnd: \" + %(@-20))");
+    assert(strstr(g_last_displayed, "HexAnd: 7") != NULL);
+
+    /* String operators: string length (.?) and string conversion (%) */
+    powwow_send_line(sess, "#($name = \"Powwow\")");
+    powwow_send_line(sess, "#(@-21 = .?$name)");
+    g_display_count = 0;
+    powwow_send_line(sess, "#print (\"Len: \" + %(@-21))");
+    assert(strstr(g_last_displayed, "Len: 6") != NULL);
+
+    /* Word count (:?) */
+    powwow_send_line(sess, "#($phrase = \"one two three\")");
+    powwow_send_line(sess, "#(@-22 = :?$phrase)");
+    g_display_count = 0;
+    powwow_send_line(sess, "#print (\"Words: \" + %(@-22))");
+    assert(strstr(g_last_displayed, "Words: 3") != NULL);
+}
+
+/* 7. Action Priorities and Groups (#action) */
+void test_action_groups_and_status(powwow_session_t *sess)
+{
+    printf("Testing action groups and matching...\n");
+
+    powwow_set_action(sess, "^The door opens.", "look", "doors");
+    int count = 0;
+    powwow_list_actions(sess, test_action_callback, &count);
+    assert(count >= 1);
+
+    memset(g_last_server_data, 0, sizeof(g_last_server_data));
+    powwow_process_remote(sess, "The door opens.\n", strlen("The door opens.\n"));
+    assert(strstr(g_last_server_data, "look") != NULL);
+
+    powwow_delete_action(sess, "^The door opens.");
+}
+
+/* 8. Multiple Independent Sessions */
+void test_session_isolation(void)
+{
+    printf("Testing session isolation...\n");
+
+    powwow_ui_ops_t ops1 = { .display_text = test_display_text };
+    powwow_ui_ops_t ops2 = { .display_text = test_display_text };
+
+    powwow_session_t *s1 = powwow_session_create(&ops1, NULL);
+    powwow_session_t *s2 = powwow_session_create(&ops2, NULL);
+    assert(s1 != NULL);
+    assert(s2 != NULL);
+
+    assert(powwow_set_variable(s1, "var1", "val1") == 0);
+    assert(powwow_get_variable(s1, "var1") != NULL);
+
+    powwow_session_destroy(s1);
+    powwow_session_destroy(s2);
 }
