@@ -8,7 +8,10 @@ add_executable(test_gui
     ../terminalwidget.h
     ../resources.qrc
 )
-target_include_directories(test_gui PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/..")
+target_include_directories(test_gui PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/.."
+    "${CMAKE_SOURCE_DIR}/include"
+)
 target_link_libraries(test_gui PRIVATE
     Qt6::Core
     Qt6::Widgets

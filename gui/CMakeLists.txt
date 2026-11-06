@@ -39,6 +39,8 @@ if(BUILD_GUI)
             add_executable(powtty ${GUI_SOURCES})
         endif()
 
+        target_include_directories(powtty PRIVATE "${CMAKE_SOURCE_DIR}/include")
+
         target_link_libraries(powtty PRIVATE
             Qt6::Core
             Qt6::Widgets
