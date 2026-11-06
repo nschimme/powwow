@@ -1,4 +1,11 @@
-if(NOT WIN32)
+if(WIN32)
+    add_library(powwow_core STATIC powwow_stub_win32.c)
+    target_link_libraries(powwow_core PUBLIC powwow_platform_definitions)
+    target_include_directories(powwow_core PUBLIC
+        "${CMAKE_SOURCE_DIR}/include"
+        "${CMAKE_CURRENT_SOURCE_DIR}"
+    )
+else()
     set(LIBPOWWOW_SOURCES
         powwow.c
         core_engine.c
