@@ -40,11 +40,14 @@ if(BUILD_GUI)
         endif()
 
         target_link_libraries(powtty PRIVATE
-            powwow_core
             Qt6::Core
             Qt6::Widgets
             Qt6::Network
         )
+
+        if(TARGET powwow_core)
+            target_link_libraries(powtty PRIVATE powwow_core)
+        endif()
 
         install(TARGETS powtty DESTINATION bin)
 
