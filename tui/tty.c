@@ -1167,6 +1167,7 @@ void tty_gets(char *s, int size)
 }
 
 void powwow_internal_ui_display_text(const char *text, size_t len);
+int  powwow_has_ui_display(void);
 
 void tty_flush(void)
 {
@@ -1174,6 +1175,11 @@ void tty_flush(void)
     char *data = tty_write_state.data;
     if (n > 0) {
         powwow_internal_ui_display_text(data, n);
+    }
+    if (powwow_has_ui_display()) {
+        /* If attached to GUI/custom UI frontend, do not leak raw text to stdout */
+        tty_write_state.used = 0;
+        return;
     }
     while (n > 0) {
         ssize_t r;

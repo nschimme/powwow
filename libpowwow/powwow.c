@@ -63,6 +63,11 @@ void powwow_internal_ui_send_server_data(const char *data, size_t len)
     }
 }
 
+int powwow_has_ui_display(void)
+{
+    return (g_ui_ops.display_text != NULL) ? 1 : 0;
+}
+
 static void powwow_init_core_engine(void)
 {
     if (g_initialized) return;

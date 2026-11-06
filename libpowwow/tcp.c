@@ -331,6 +331,15 @@ static void sendopt(byte what, byte opt)
  */
 static int tcp_connect(const char *addr, int port, const char *protocol)
 {
+#ifdef _WIN32
+    static bool wsa_inited = false;
+    if (!wsa_inited) {
+        WSADATA wsa;
+        if (WSAStartup(MAKEWORD(2, 2), &wsa) == 0) {
+            wsa_inited = true;
+        }
+    }
+#endif
     struct addrinfo *host_info;
     struct addrinfo addrinfo = { 0 };
     struct sockaddr_in6 address = { 0 };
