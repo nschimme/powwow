@@ -154,6 +154,31 @@ add_executable(test_libpowwow tests/test_libpowwow.c)
 target_link_libraries(test_libpowwow PRIVATE powwow_core)
 add_test(NAME test_libpowwow COMMAND test_libpowwow)
 
+add_executable(test_session tests/test_session.c)
+target_link_libraries(test_session PRIVATE powwow_core)
+add_test(NAME test_session COMMAND test_session)
+
+add_executable(test_alias tests/test_alias.c)
+target_link_libraries(test_alias PRIVATE powwow_core)
+add_test(NAME test_alias COMMAND test_alias)
+
+add_executable(test_action tests/test_action.c)
+target_link_libraries(test_action PRIVATE powwow_core)
+add_test(NAME test_action COMMAND test_action)
+
+add_executable(test_eval tests/test_eval.c)
+target_link_libraries(test_eval PRIVATE powwow_core)
+add_test(NAME test_eval COMMAND test_eval)
+
+add_executable(test_bind_mark_history tests/test_bind_mark_history.c)
+target_link_libraries(test_bind_mark_history PRIVATE powwow_core)
+add_test(NAME test_bind_mark_history COMMAND test_bind_mark_history)
+
+if(NOT WIN32)
+    add_executable(test_tui tests/test_tui.c)
+    add_test(NAME test_tui COMMAND test_tui)
+endif()
+
 # Qt6 GUI Application (PowTTY)
 if(BUILD_GUI)
     find_package(Qt6 COMPONENTS Core Widgets Network QUIET)
@@ -205,6 +230,26 @@ if(BUILD_GUI)
         )
 
         install(TARGETS powtty DESTINATION bin)
+
+        # Qt6 GUI Unit Test
+        add_executable(test_gui
+            tests/test_gui.cpp
+            gui/profilemanager.cpp
+            gui/profilemanager.h
+            gui/mudconfigdialog.cpp
+            gui/mudconfigdialog.h
+            gui/terminalwidget.cpp
+            gui/terminalwidget.h
+            gui/resources.qrc
+        )
+        target_include_directories(test_gui PRIVATE "${CMAKE_SOURCE_DIR}/gui")
+        target_link_libraries(test_gui PRIVATE
+            powwow_core
+            Qt6::Core
+            Qt6::Widgets
+            Qt6::Network
+        )
+        add_test(NAME test_gui COMMAND test_gui)
 
         # Deployment step using macdeployqt / windeployqt in CMake install/post-build
         if(WIN32)
