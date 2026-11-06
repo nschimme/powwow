@@ -949,13 +949,8 @@ void input_replace(int from, int len, const char *str, int n)
 #ifdef USE_LOCALE
 /* curses wide character support by Dain */
 
-void powwow_internal_ui_display_text(const char *text, size_t len);
-
 void tty_puts(const char *s)
 {
-    if (s) {
-        powwow_internal_ui_display_text(s, strlen(s));
-    }
     while (*s)
         tty_putc(*s++);
 }
@@ -1171,10 +1166,15 @@ void tty_gets(char *s, int size)
     *s = '\0';
 }
 
+void powwow_internal_ui_display_text(const char *text, size_t len);
+
 void tty_flush(void)
 {
     size_t n = tty_write_state.used;
     char *data = tty_write_state.data;
+    if (n > 0) {
+        powwow_internal_ui_display_text(data, n);
+    }
     while (n > 0) {
         ssize_t r;
         for (;;) {
@@ -1184,8 +1184,8 @@ void tty_flush(void)
             if (errno == EINTR)
                 continue;
             if (errno != EAGAIN) {
-                fprintf(stderr, "Cannot write to tty: %s\n", strerror(errno));
-                abort();
+                /* Non-fatal if stdout is redirected or piped */
+                break;
             }
             fd_set wfds;
             FD_ZERO(&wfds);
@@ -1193,16 +1193,9 @@ void tty_flush(void)
             do {
                 r = select(tty_write_state.fd + 1, NULL, &wfds, NULL, NULL);
             } while (r < 0 && errno == EINTR);
-            if (r <= 0) {
-                fprintf(stderr, "Cannot write to tty; select failed: %s\n",
-                        r == 0 ? "returned zero" : strerror(errno));
-                abort();
-            }
+            if (r <= 0) break;
         }
-        if (r < 0) {
-            fprintf(stderr, "Cannot write to tty: %s\n", strerror(errno));
-            abort();
-        }
+        if (r <= 0) break;
         n -= r;
         data += r;
     }

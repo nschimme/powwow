@@ -38,6 +38,7 @@ private:
     QTableWidget *m_markTable;
     QTableWidget *m_delayTable;
     QTableWidget *m_historyTable;
+    QTableWidget *m_optTable;
 };
 
 #endif // MUDCONFIGDIALOG_H

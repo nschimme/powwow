@@ -141,6 +141,29 @@ MudConfigDialog::MudConfigDialog(powwow_session_t *session, QWidget *parent)
 
     connect(addHistBtn, &QPushButton::clicked, this, &MudConfigDialog::onAddHistory);
 
+    // 8. Options / Preferences Tab
+    QWidget *optPage = new QWidget(this);
+    QVBoxLayout *optLayout = new QVBoxLayout(optPage);
+    m_optTable = new QTableWidget(0, 3, optPage);
+    m_optTable->setHorizontalHeaderLabels({tr("Option"), tr("Description"), tr("Enabled")});
+    m_optTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    optLayout->addWidget(m_optTable);
+
+    QHBoxLayout *optBtnLayout = new QHBoxLayout();
+    QPushButton *toggleOptBtn = new QPushButton(tr("Toggle Selected Option"), optPage);
+    optBtnLayout->addWidget(toggleOptBtn);
+    optLayout->addLayout(optBtnLayout);
+    m_tabs->addTab(optPage, tr("Preferences"));
+
+    connect(toggleOptBtn, &QPushButton::clicked, this, [this]() {
+        int row = m_optTable->currentRow();
+        if (row < 0 || !m_session) return;
+        QString name = m_optTable->item(row, 0)->text();
+        int cur = powwow_get_option(m_session, name.toUtf8().constData());
+        powwow_set_option(m_session, name.toUtf8().constData(), cur <= 0);
+        refreshData();
+    });
+
     // Close button
     QPushButton *closeBtn = new QPushButton(tr("Close"), this);
     mainLayout->addWidget(closeBtn);
@@ -230,6 +253,17 @@ void MudConfigDialog::refreshData()
         table->setItem(row, 0, new QTableWidgetItem(QString::number(info->index)));
         table->setItem(row, 1, new QTableWidgetItem(info->line ? QString::fromUtf8(info->line) : QString()));
     }, m_historyTable);
+
+    // Refresh Options / Preferences
+    m_optTable->setRowCount(0);
+    powwow_list_options(m_session, [](const powwow_option_info_t *info, void *userData) {
+        auto *table = static_cast<QTableWidget *>(userData);
+        int row = table->rowCount();
+        table->insertRow(row);
+        table->setItem(row, 0, new QTableWidgetItem(info->name ? QString::fromUtf8(info->name) : QString()));
+        table->setItem(row, 1, new QTableWidgetItem(info->description ? QString::fromUtf8(info->description) : QString()));
+        table->setItem(row, 2, new QTableWidgetItem(info->value ? QString("Yes") : QString("No")));
+    }, m_optTable);
 }
 
 void MudConfigDialog::onAddAlias()

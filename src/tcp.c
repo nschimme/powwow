@@ -26,13 +26,14 @@
 #include <sys/types.h>
 #ifndef _WIN32
 #  include <sys/socket.h>
+#  include <netdb.h>
+#  include <netinet/in.h>
+#  include <netinet/tcp.h>
 #else
 #  include <winsock2.h>
+#  include <ws2tcpip.h>
 #endif
 #include <sys/time.h>
-#include <netdb.h>
-#include <netinet/in.h>
-#include <netinet/tcp.h>
 #if defined(__has_include)
 #  if __has_include(<arpa/telnet.h>)
 #    include <arpa/telnet.h>

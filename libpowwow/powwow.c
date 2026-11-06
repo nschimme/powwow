@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 
 #include "defines.h"
 #include "main.h"
@@ -10,6 +11,7 @@
 #include "edit.h"
 #include "tcp.h"
 #include "log.h"
+#include "tty.h"
 #include "utils.h"
 
 static powwow_ui_ops_t g_ui_ops = {0};
@@ -181,6 +183,7 @@ void powwow_send_line(powwow_session_t *session, const char *line)
         current_connection = main_connection;
     }
     parse_user_input((char *)line, 1);
+    tty_flush();
 }
 
 void powwow_process_remote(powwow_session_t *session, const char *buf, size_t len)
@@ -193,6 +196,7 @@ void powwow_process_remote(powwow_session_t *session, const char *buf, size_t le
     copy[len] = '\0';
     process_remote_input(copy, len);
     free(copy);
+    tty_flush();
 }
 
 void powwow_process_input(powwow_session_t *session, const char *buf, size_t len)
@@ -210,6 +214,7 @@ void powwow_process_network(powwow_session_t *session)
         if (got > 0) {
             buffer[got] = '\0';
             process_remote_input(buffer, got);
+            tty_flush();
         }
     }
 }
@@ -534,4 +539,69 @@ void powwow_add_history(powwow_session_t *session, const char *line)
             free(dup);
         }
     }
+}
+
+/* Options / Preferences */
+struct option_desc {
+    const char *name;
+    const char *description;
+    char *val_ptr;
+};
+
+static struct option_desc g_options[] = {
+    { "echo", "Echo text sent to server", &opt_echo },
+    { "keyecho", "Echo key bindings", &opt_keyecho },
+    { "info", "Show internal informatory messages", &opt_info },
+    { "history", "Save history list", &opt_history },
+    { "words", "Save word completion list", &opt_words },
+    { "compact", "Clear prompt between messages", &opt_compact },
+    { "debug", "Echo lines before parsing", &opt_debug },
+    { "speedwalk", "Enable speedwalking (n, s, e, w, etc.)", &opt_speedwalk },
+    { "wrap", "Wrap words at margin", &opt_wrap },
+    { "autoprint", "Print lines matched by actions", &opt_autoprint },
+    { "reprint", "Reprint sent commands upon prompt", &opt_reprint },
+    { "sendsize", "Send window size on connect", &opt_sendsize },
+    { "autoclear", "Clear input line before running commands", &opt_autoclear },
+    { "exit", "Exit when closing last connection", &opt_exit },
+    { NULL, NULL, NULL }
+};
+
+void powwow_list_options(powwow_session_t *session, powwow_option_callback_t cb, void *user_data)
+{
+    (void)session;
+    if (!cb) return;
+
+    for (int i = 0; g_options[i].name; i++) {
+        powwow_option_info_t info = {
+            .name = g_options[i].name,
+            .description = g_options[i].description,
+            .value = (*g_options[i].val_ptr) != 0
+        };
+        cb(&info, user_data);
+    }
+}
+
+int powwow_set_option(powwow_session_t *session, const char *name, bool value)
+{
+    (void)session;
+    if (!name) return -1;
+    for (int i = 0; g_options[i].name; i++) {
+        if (strcasecmp(g_options[i].name, name) == 0) {
+            *g_options[i].val_ptr = value ? 1 : 0;
+            return 0;
+        }
+    }
+    return -1;
+}
+
+int powwow_get_option(powwow_session_t *session, const char *name)
+{
+    (void)session;
+    if (!name) return -1;
+    for (int i = 0; g_options[i].name; i++) {
+        if (strcasecmp(g_options[i].name, name) == 0) {
+            return (*g_options[i].val_ptr) != 0 ? 1 : 0;
+        }
+    }
+    return -1;
 }

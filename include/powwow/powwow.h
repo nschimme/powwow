@@ -72,6 +72,12 @@ typedef struct powwow_history_info {
     const char *line;
 } powwow_history_info_t;
 
+typedef struct powwow_option_info {
+    const char *name;
+    const char *description;
+    bool value;
+} powwow_option_info_t;
+
 /* Callback types for visiting lists of internal structs */
 typedef void (*powwow_alias_callback_t)(const powwow_alias_info_t *info, void *user_data);
 typedef void (*powwow_action_callback_t)(const powwow_action_info_t *info, void *user_data);
@@ -80,6 +86,7 @@ typedef void (*powwow_bind_callback_t)(const powwow_bind_info_t *info, void *use
 typedef void (*powwow_mark_callback_t)(const powwow_mark_info_t *info, void *user_data);
 typedef void (*powwow_delay_callback_t)(const powwow_delay_info_t *info, void *user_data);
 typedef void (*powwow_history_callback_t)(const powwow_history_info_t *info, void *user_data);
+typedef void (*powwow_option_callback_t)(const powwow_option_info_t *info, void *user_data);
 
 /* Session lifecycle functions */
 powwow_session_t *powwow_session_create(const powwow_ui_ops_t *ops, void *user_data);
@@ -135,6 +142,11 @@ int  powwow_delete_delay(powwow_session_t *session, const char *name);
 /* History (#history / #put) */
 void powwow_list_history(powwow_session_t *session, powwow_history_callback_t cb, void *user_data);
 void powwow_add_history(powwow_session_t *session, const char *line);
+
+/* Options / Preferences (#option) */
+void powwow_list_options(powwow_session_t *session, powwow_option_callback_t cb, void *user_data);
+int  powwow_set_option(powwow_session_t *session, const char *name, bool value);
+int  powwow_get_option(powwow_session_t *session, const char *name);
 
 #ifdef __cplusplus
 }
