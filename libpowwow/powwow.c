@@ -188,6 +188,7 @@ void powwow_send_line(powwow_session_t *session, const char *line)
         current_connection = main_connection;
     }
     parse_user_input((char *)line, 1);
+    tcp_flush();
     tty_flush();
 }
 

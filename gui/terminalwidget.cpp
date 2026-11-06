@@ -18,7 +18,11 @@ TerminalWidget::TerminalWidget(const SessionProfile &profile, QWidget *parent)
     ops.display_text = [](void *userData, const char *text, size_t len) {
         if (!userData || !text) return;
         auto *self = static_cast<TerminalWidget *>(userData);
-        self->appendAnsiText(QString::fromUtf8(text, len));
+        QString str = QString::fromUtf8(text, len);
+        if (str.contains("password", Qt::CaseInsensitive) || str.contains("passcode", Qt::CaseInsensitive)) {
+            self->m_passwordMode = true;
+        }
+        self->appendAnsiText(str);
     };
     ops.connection_status = [](void *userData, bool connected, const char *host, int port) {
         if (!userData) return;
