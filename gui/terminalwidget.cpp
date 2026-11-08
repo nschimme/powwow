@@ -7,6 +7,8 @@
 #include <QKeyEvent>
 #include <QGuiApplication>
 #include <QClipboard>
+#include <QLabel>
+#include <QHBoxLayout>
 #include <QDebug>
 
 TerminalWidget::TerminalWidget(const SessionProfile &profile, QWidget *parent)
@@ -24,9 +26,16 @@ TerminalWidget::TerminalWidget(const SessionProfile &profile, QWidget *parent)
         }
         self->appendAnsiText(str);
     };
+    ops.display_prompt = [](void *userData, const char *prompt) {
+        if (!userData || !prompt) return;
+        auto *self = static_cast<TerminalWidget *>(userData);
+        QString str = QString::fromUtf8(prompt);
+        self->appendAnsiText(str);
+    };
     ops.connection_status = [](void *userData, bool connected, const char *host, int port) {
         if (!userData) return;
         auto *self = static_cast<TerminalWidget *>(userData);
+        self->updateStatusDisplay(connected);
         if (connected) {
             self->appendAnsiText(QString("\n*** Connected to %1:%2 via libpowwow ***\n\n").arg(host).arg(port));
         } else {
@@ -39,15 +48,16 @@ TerminalWidget::TerminalWidget(const SessionProfile &profile, QWidget *parent)
 
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(0, 0, 0, 0);
+    mainLayout->setSpacing(0);
 
     // Session Toolbar for quick UX flows
     QToolBar *sessionToolbar = new QToolBar(this);
-    sessionToolbar->setStyleSheet("QToolBar { background: #2b2b2b; color: white; border: none; padding: 2px; } QToolButton { color: white; padding: 4px; }");
+    sessionToolbar->setStyleSheet("QToolBar { background: #252526; color: white; border-bottom: 1px solid #3c3c3c; padding: 4px; } QToolButton { color: white; padding: 4px 8px; border-radius: 3px; } QToolButton:hover { background-color: #383838; }");
     QAction *inspectAction = sessionToolbar->addAction(tr("⚡ MUD Config (Aliases / Triggers / Variables)"));
     inspectAction->setShortcut(QKeySequence("Ctrl+M"));
     connect(inspectAction, &QAction::triggered, this, &TerminalWidget::openInspector);
 
-    QAction *disconnectAction = sessionToolbar->addAction(tr("Disconnect"));
+    QAction *disconnectAction = sessionToolbar->addAction(tr("🔌 Disconnect"));
     connect(disconnectAction, &QAction::triggered, this, &TerminalWidget::stopSession);
 
     mainLayout->addWidget(sessionToolbar);
@@ -75,7 +85,39 @@ TerminalWidget::TerminalWidget(const SessionProfile &profile, QWidget *parent)
     m_defaultFormat.setFont(font);
     m_currentFormat = m_defaultFormat;
 
-    mainLayout->addWidget(m_terminalDisplay);
+    mainLayout->addWidget(m_terminalDisplay, 1);
+
+    // Modern bottom status bar
+    QWidget *statusBarWidget = new QWidget(this);
+    statusBarWidget->setStyleSheet("background-color: #007acc; color: #ffffff; font-size: 11px; padding: 2px 6px;");
+    QHBoxLayout *statusLayout = new QHBoxLayout(statusBarWidget);
+    statusLayout->setContentsMargins(6, 2, 6, 2);
+
+    m_statusLabel = new QLabel(tr("⚪ Disconnected"), statusBarWidget);
+    m_statusLabel->setStyleSheet("font-weight: bold;");
+
+    QString tlsInfo = m_profile.useTls ? "[TLS]" : "[Plain TCP]";
+    QLabel *targetLabel = new QLabel(QString("%1:%2 %3").arg(m_profile.host.isEmpty() ? "mume.org" : m_profile.host).arg(m_profile.port > 0 ? m_profile.port : 4242).arg(tlsInfo), statusBarWidget);
+
+    m_geoLabel = new QLabel(QString("%1x%2").arg(m_cols).arg(m_lines), statusBarWidget);
+
+    statusLayout->addWidget(m_statusLabel);
+    statusLayout->addWidget(targetLabel);
+    statusLayout->addStretch(1);
+    statusLayout->addWidget(m_geoLabel);
+
+    mainLayout->addWidget(statusBarWidget);
+}
+
+void TerminalWidget::updateStatusDisplay(bool connected)
+{
+    if (m_statusLabel) {
+        if (connected) {
+            m_statusLabel->setText(tr("🟢 Connected"));
+        } else {
+            m_statusLabel->setText(tr("⚪ Disconnected"));
+        }
+    }
 }
 
 TerminalWidget::~TerminalWidget()
@@ -225,6 +267,9 @@ void TerminalWidget::updateGridSize()
         int h = m_terminalDisplay->viewport()->height();
         m_cols = qMax(20, w / charWidth);
         m_lines = qMax(5, h / lineHeight);
+    }
+    if (m_geoLabel) {
+        m_geoLabel->setText(QString("%1x%2").arg(m_cols).arg(m_lines));
     }
 }
 

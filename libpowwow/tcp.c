@@ -75,7 +75,9 @@
 #ifndef TELOPT_CHARSET
 #  define TELOPT_CHARSET 42
 #endif
-#include <arpa/inet.h>
+#ifndef _WIN32
+#  include <arpa/inet.h>
+#endif
 #ifndef NEXT
 #  include <unistd.h>
 #endif
@@ -1092,18 +1094,30 @@ void tcp_set_main(connsess *conn)
 
 static ssize_t tcp_conn_read(connsess *conn, void *buf, size_t count)
 {
+#ifdef _WIN32
+    return recv(conn->fd, (char *)buf, (int)count, 0);
+#else
     return read(conn->fd, buf, count);
+#endif
 }
 
 static ssize_t tcp_conn_write(connsess *conn, const void *buf,
                               size_t count)
 {
+#ifdef _WIN32
+    return send(conn->fd, (const char *)buf, (int)count, 0);
+#else
     return write(conn->fd, buf, count);
+#endif
 }
 
 static int tcp_conn_close(connsess *conn)
 {
+#ifdef _WIN32
+    return closesocket(conn->fd);
+#else
     return close(conn->fd);
+#endif
 }
 
 static bool tcp_conn_can_read(connsess *conn)

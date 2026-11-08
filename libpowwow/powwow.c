@@ -202,6 +202,15 @@ void powwow_process_remote(powwow_session_t *session, const char *buf, size_t le
     copy[len] = '\0';
     process_remote_input(copy, len);
     free(copy);
+    if (promptlen && prompt_status == 1) {
+        if (g_ui_ops.display_prompt && prompt && prompt->str) {
+            powwow_internal_ui_display_prompt(ptrdata(prompt->str));
+        } else if (!g_ui_ops.display_prompt && g_ui_ops.display_text && prompt && prompt->str) {
+            powwow_internal_ui_display_text(ptrdata(prompt->str), strlen(ptrdata(prompt->str)));
+        } else {
+            draw_prompt();
+        }
+    }
     tty_flush();
 }
 
@@ -220,6 +229,15 @@ void powwow_process_network(powwow_session_t *session)
         if (got > 0) {
             buffer[got] = '\0';
             process_remote_input(buffer, got);
+            if (promptlen && prompt_status == 1) {
+                if (g_ui_ops.display_prompt && prompt && prompt->str) {
+                    powwow_internal_ui_display_prompt(ptrdata(prompt->str));
+                } else if (!g_ui_ops.display_prompt && g_ui_ops.display_text && prompt && prompt->str) {
+                    powwow_internal_ui_display_text(ptrdata(prompt->str), strlen(ptrdata(prompt->str)));
+                } else {
+                    draw_prompt();
+                }
+            }
             tty_flush();
         }
     }

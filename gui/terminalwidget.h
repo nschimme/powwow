@@ -54,6 +54,10 @@ private:
 
     powwow_session_t *m_powwowSession = nullptr;
 
+    class QLabel *m_statusLabel = nullptr;
+    class QLabel *m_geoLabel = nullptr;
+    void updateStatusDisplay(bool connected);
+
 public slots:
     void openInspector();
 };

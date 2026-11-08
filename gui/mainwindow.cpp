@@ -138,14 +138,16 @@ void MainWindow::setupUi()
 
     // Connect / Open button (PuTTY style Open button at bottom right)
     QHBoxLayout *connectLayout = new QHBoxLayout();
-    m_inspectButton = new QPushButton(tr("Inspect Structs"), optionsGroupBox);
-    m_inspectButton->setMinimumHeight(32);
+    m_inspectButton = new QPushButton(tr("⚡ MUD Configuration"), optionsGroupBox);
+    m_inspectButton->setMinimumHeight(34);
+    m_inspectButton->setStyleSheet("QPushButton { background-color: #333333; } QPushButton:hover { background-color: #444444; }");
     connectLayout->addWidget(m_inspectButton);
     connectLayout->addStretch();
-    m_connectButton = new QPushButton(tr("Connect"), optionsGroupBox);
+    m_connectButton = new QPushButton(tr("🚀 Connect"), optionsGroupBox);
     m_connectButton->setDefault(true);
-    m_connectButton->setMinimumHeight(32);
-    m_connectButton->setMinimumWidth(100);
+    m_connectButton->setMinimumHeight(34);
+    m_connectButton->setMinimumWidth(120);
+    m_connectButton->setStyleSheet("QPushButton { font-weight: bold; font-size: 14px; }");
     connectLayout->addWidget(m_connectButton);
 
     optionsLayout->addLayout(connectLayout);

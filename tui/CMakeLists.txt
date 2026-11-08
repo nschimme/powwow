@@ -2,6 +2,14 @@ if(NOT WIN32)
     add_executable(powwow main.c tty.c edit.c)
     target_link_libraries(powwow PRIVATE powwow_core)
 
+    find_package(Curses QUIET)
+    if(CURSES_FOUND)
+        target_include_directories(powwow PRIVATE ${CURSES_INCLUDE_DIRS})
+        target_link_libraries(powwow PRIVATE ${CURSES_LIBRARIES})
+    else()
+        target_link_libraries(powwow PRIVATE ncurses)
+    endif()
+
     add_executable(powwow-muc powwow-muc.c)
     add_executable(powwow-movieplay powwow-movieplay.c)
 
