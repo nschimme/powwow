@@ -3,9 +3,11 @@
 
 #include <QWidget>
 #include <QPlainTextEdit>
+#include <QLineEdit>
 #include <QSocketNotifier>
 #include <QVBoxLayout>
 #include <QTextCharFormat>
+#include <QStringList>
 
 #include "profilemanager.h"
 #include "powwow/powwow.h"
@@ -26,9 +28,16 @@ public:
 
 signals:
     void sessionClosed();
+    void toggleInspectorRequested();
+
+public slots:
+    void openInspector();
+    void clearTerminal();
+    void reconnectSession();
 
 private slots:
     void onSocketActivated(int socket);
+    void onCommandSubmitted();
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
@@ -37,11 +46,12 @@ protected:
 private:
     void appendAnsiText(const QString &text);
     void parseSgrCode(const QString &codeStr);
-    void sendKeyToSession(QKeyEvent *keyEvent);
     void updateGridSize();
+    void updateStatusDisplay(bool connected);
 
     SessionProfile m_profile;
     QPlainTextEdit *m_terminalDisplay;
+    QLineEdit *m_commandInput;
     QSocketNotifier *m_notifier = nullptr;
 
     QTextCharFormat m_defaultFormat;
@@ -50,16 +60,15 @@ private:
     int m_lines = 24;
 
     bool m_passwordMode = false;
-    QString m_inputLineBuffer;
+    QStringList m_history;
+    int m_historyIndex = -1;
 
     powwow_session_t *m_powwowSession = nullptr;
 
     class QLabel *m_statusLabel = nullptr;
     class QLabel *m_geoLabel = nullptr;
-    void updateStatusDisplay(bool connected);
-
-public slots:
-    void openInspector();
+    class QAction *m_reconnectAction = nullptr;
+    class QAction *m_disconnectAction = nullptr;
 };
 
 #endif // TERMINALWIDGET_H

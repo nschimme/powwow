@@ -13,8 +13,8 @@
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
-    setWindowTitle(tr("PowTTY"));
-    resize(750, 520);
+    setWindowTitle(tr("PowTTY - Modern MUD Client"));
+    resize(980, 640);
 
     setupUi();
     refreshSessionList();
@@ -26,43 +26,59 @@ MainWindow::~MainWindow()
 
 void MainWindow::setupUi()
 {
-    m_stackedWidget = new QStackedWidget(this);
-    setCentralWidget(m_stackedWidget);
+    m_mainSplitter = new QSplitter(Qt::Horizontal, this);
+    setCentralWidget(m_mainSplitter);
 
-    // Configuration page
-    m_configPage = new QWidget(this);
-    QHBoxLayout *mainConfigLayout = new QHBoxLayout(m_configPage);
+    // 1. Persistent Left Sidebar
+    m_sidebarWidget = new QWidget(m_mainSplitter);
+    m_sidebarWidget->setMinimumWidth(200);
+    m_sidebarWidget->setMaximumWidth(280);
+    QVBoxLayout *sidebarLayout = new QVBoxLayout(m_sidebarWidget);
+    sidebarLayout->setContentsMargins(8, 8, 8, 8);
+    sidebarLayout->setSpacing(6);
 
-    // Left Panel: Saved Sessions (PuTTY style)
-    QGroupBox *sessionGroupBox = new QGroupBox(tr("Saved Sessions"), m_configPage);
-    QVBoxLayout *sessionLayout = new QVBoxLayout(sessionGroupBox);
+    QLabel *sidebarHeader = new QLabel(tr("⚡ MUD WORLDS"), m_sidebarWidget);
+    sidebarHeader->setStyleSheet("font-weight: bold; color: #4ec9b0; font-size: 11px; letter-spacing: 1px; padding: 4px 2px;");
+    sidebarLayout->addWidget(sidebarHeader);
 
-    m_sessionListWidget = new QListWidget(sessionGroupBox);
-    sessionLayout->addWidget(m_sessionListWidget);
+    m_sessionListWidget = new QListWidget(m_sidebarWidget);
+    sidebarLayout->addWidget(m_sessionListWidget, 1);
 
-    QHBoxLayout *sessionButtonsLayout = new QHBoxLayout();
-    m_saveButton = new QPushButton(tr("Save"), sessionGroupBox);
-    m_deleteButton = new QPushButton(tr("Delete"), sessionGroupBox);
-    sessionButtonsLayout->addWidget(m_saveButton);
-    sessionButtonsLayout->addWidget(m_deleteButton);
-    sessionLayout->addLayout(sessionButtonsLayout);
+    QHBoxLayout *sideBtnLayout = new QHBoxLayout();
+    m_newSessionButton = new QPushButton(tr("＋ New"), m_sidebarWidget);
+    m_deleteButton = new QPushButton(tr("🗑 Delete"), m_sidebarWidget);
+    m_newSessionButton->setStyleSheet("background-color: #252526;");
+    m_deleteButton->setStyleSheet("background-color: #252526;");
+    sideBtnLayout->addWidget(m_newSessionButton);
+    sideBtnLayout->addWidget(m_deleteButton);
+    sidebarLayout->addLayout(sideBtnLayout);
 
-    mainConfigLayout->addWidget(sessionGroupBox, 1);
+    m_mainSplitter->addWidget(m_sidebarWidget);
 
-    // Right Panel: Basic Options
-    QGroupBox *optionsGroupBox = new QGroupBox(tr("Session Settings"), m_configPage);
+    // 2. Right Content Stack (Configuration Form or Active Terminal)
+    m_contentStack = new QStackedWidget(m_mainSplitter);
+
+    // Configuration Page (Card-style view)
+    m_configPage = new QWidget(m_contentStack);
+    QVBoxLayout *configPageLayout = new QVBoxLayout(m_configPage);
+    configPageLayout->setContentsMargins(16, 16, 16, 16);
+
+    QGroupBox *optionsGroupBox = new QGroupBox(tr("World Connection Settings"), m_configPage);
     QVBoxLayout *optionsLayout = new QVBoxLayout(optionsGroupBox);
+    optionsLayout->setContentsMargins(16, 18, 16, 16);
 
     QFormLayout *formLayout = new QFormLayout();
+    formLayout->setHorizontalSpacing(12);
+    formLayout->setVerticalSpacing(10);
 
     m_sessionNameEdit = new QLineEdit(optionsGroupBox);
-    m_sessionNameEdit->setPlaceholderText(tr("Session Name"));
-    formLayout->addRow(tr("Session Name:"), m_sessionNameEdit);
+    m_sessionNameEdit->setPlaceholderText(tr("e.g. MUME, Achaea"));
+    formLayout->addRow(tr("Profile Name:"), m_sessionNameEdit);
 
     QHBoxLayout *hostPortLayout = new QHBoxLayout();
     m_hostEdit = new QLineEdit(optionsGroupBox);
     m_hostEdit->setText("mume.org");
-    m_hostEdit->setPlaceholderText(tr("mume.org"));
+    m_hostEdit->setPlaceholderText(tr("Host Address (e.g. mume.org)"));
 
     m_portSpinBox = new QSpinBox(optionsGroupBox);
     m_portSpinBox->setRange(1, 65535);
@@ -71,7 +87,7 @@ void MainWindow::setupUi()
     hostPortLayout->addWidget(m_hostEdit, 3);
     hostPortLayout->addWidget(new QLabel(tr("Port:"), optionsGroupBox));
     hostPortLayout->addWidget(m_portSpinBox, 1);
-    formLayout->addRow(tr("Host Name:"), hostPortLayout);
+    formLayout->addRow(tr("Server Host & Port:"), hostPortLayout);
 
     // Profile (.pow file) path picker
     QHBoxLayout *powFileLayout = new QHBoxLayout();
@@ -81,9 +97,9 @@ void MainWindow::setupUi()
     m_browsePowButton = new QPushButton(tr("Browse..."), optionsGroupBox);
     powFileLayout->addWidget(m_powFileEdit);
     powFileLayout->addWidget(m_browsePowButton);
-    formLayout->addRow(tr("Profile (.pow):"), powFileLayout);
+    formLayout->addRow(tr("Profile File (.pow):"), powFileLayout);
 
-    // Editor (POWWOWEDITOR) picker with platform default placeholder
+    // Editor picker
     QHBoxLayout *editorLayout = new QHBoxLayout();
     m_editorEdit = new QLineEdit(optionsGroupBox);
     m_editorEdit->setText(defaultPlatformEditor());
@@ -91,9 +107,9 @@ void MainWindow::setupUi()
     m_browseEditorButton = new QPushButton(tr("Browse..."), optionsGroupBox);
     editorLayout->addWidget(m_editorEdit);
     editorLayout->addWidget(m_browseEditorButton);
-    formLayout->addRow(tr("Editor:"), editorLayout);
+    formLayout->addRow(tr("External Editor:"), editorLayout);
 
-    // Pager (POWWOWPAGER) picker with platform default placeholder
+    // Pager picker
     QHBoxLayout *pagerLayout = new QHBoxLayout();
     m_pagerEdit = new QLineEdit(optionsGroupBox);
     m_pagerEdit->setText(defaultPlatformPager());
@@ -101,7 +117,7 @@ void MainWindow::setupUi()
     m_browsePagerButton = new QPushButton(tr("Browse..."), optionsGroupBox);
     pagerLayout->addWidget(m_pagerEdit);
     pagerLayout->addWidget(m_browsePagerButton);
-    formLayout->addRow(tr("Pager:"), pagerLayout);
+    formLayout->addRow(tr("External Pager:"), pagerLayout);
 
     // Font selection
     QHBoxLayout *fontLayout = new QHBoxLayout();
@@ -118,46 +134,56 @@ void MainWindow::setupUi()
     fontLayout->addWidget(m_fontSizeSpinBox, 1);
     formLayout->addRow(tr("Terminal Font:"), fontLayout);
 
-    // Scrollback Lines configuration
     m_scrollbackSpinBox = new QSpinBox(optionsGroupBox);
     m_scrollbackSpinBox->setRange(100, 100000);
     m_scrollbackSpinBox->setSingleStep(500);
     m_scrollbackSpinBox->setValue(5000);
-    formLayout->addRow(tr("Scrollback Lines:"), m_scrollbackSpinBox);
+    formLayout->addRow(tr("Scrollback Buffer:"), m_scrollbackSpinBox);
 
-    m_tlsCheckBox = new QCheckBox(tr("Enable TLS Encryption"), optionsGroupBox);
+    QHBoxLayout *checksLayout = new QHBoxLayout();
+    m_tlsCheckBox = new QCheckBox(tr("TLS Encryption (SSL)"), optionsGroupBox);
     m_tlsCheckBox->setChecked(false);
-    formLayout->addRow(tr("Security:"), m_tlsCheckBox);
-
-    m_utf8CheckBox = new QCheckBox(tr("Enable UTF-8 Encoding"), optionsGroupBox);
+    m_utf8CheckBox = new QCheckBox(tr("UTF-8 Character Encoding"), optionsGroupBox);
     m_utf8CheckBox->setChecked(true);
-    formLayout->addRow(tr("Encoding:"), m_utf8CheckBox);
+    checksLayout->addWidget(m_tlsCheckBox);
+    checksLayout->addWidget(m_utf8CheckBox);
+    checksLayout->addStretch();
+    formLayout->addRow(tr("Network Options:"), checksLayout);
 
     optionsLayout->addLayout(formLayout);
     optionsLayout->addStretch();
 
-    // Connect / Open button (PuTTY style Open button at bottom right)
-    QHBoxLayout *connectLayout = new QHBoxLayout();
+    // Bottom action row
+    QHBoxLayout *actionsRow = new QHBoxLayout();
+    m_saveButton = new QPushButton(tr("💾 Save World"), optionsGroupBox);
+    m_saveButton->setStyleSheet("background-color: #333333;");
+    actionsRow->addWidget(m_saveButton);
+
     m_inspectButton = new QPushButton(tr("⚡ MUD Configuration"), optionsGroupBox);
-    m_inspectButton->setMinimumHeight(34);
-    m_inspectButton->setStyleSheet("QPushButton { background-color: #333333; } QPushButton:hover { background-color: #444444; }");
-    connectLayout->addWidget(m_inspectButton);
-    connectLayout->addStretch();
-    m_connectButton = new QPushButton(tr("🚀 Connect"), optionsGroupBox);
+    m_inspectButton->setStyleSheet("background-color: #333333;");
+    actionsRow->addWidget(m_inspectButton);
+
+    actionsRow->addStretch();
+
+    m_connectButton = new QPushButton(tr("🚀 Connect to World"), optionsGroupBox);
     m_connectButton->setDefault(true);
-    m_connectButton->setMinimumHeight(34);
-    m_connectButton->setMinimumWidth(120);
-    m_connectButton->setStyleSheet("QPushButton { font-weight: bold; font-size: 14px; }");
-    connectLayout->addWidget(m_connectButton);
+    m_connectButton->setMinimumHeight(36);
+    m_connectButton->setMinimumWidth(150);
+    m_connectButton->setStyleSheet("QPushButton { font-weight: bold; font-size: 14px; background-color: #0e639c; } QPushButton:hover { background-color: #1177bb; }");
+    actionsRow->addWidget(m_connectButton);
 
-    optionsLayout->addLayout(connectLayout);
+    optionsLayout->addLayout(actionsRow);
 
-    mainConfigLayout->addWidget(optionsGroupBox, 2);
+    configPageLayout->addWidget(optionsGroupBox);
+    m_contentStack->addWidget(m_configPage);
 
-    m_stackedWidget->addWidget(m_configPage);
+    m_mainSplitter->addWidget(m_contentStack);
+    m_mainSplitter->setStretchFactor(0, 0);
+    m_mainSplitter->setStretchFactor(1, 1);
 
     // Connect signals
     connect(m_sessionListWidget, &QListWidget::currentRowChanged, this, &MainWindow::onSessionSelected);
+    connect(m_newSessionButton, &QPushButton::clicked, this, &MainWindow::onNewSession);
     connect(m_browsePowButton, &QPushButton::clicked, this, &MainWindow::onBrowsePowFile);
     connect(m_browseEditorButton, &QPushButton::clicked, this, &MainWindow::onBrowseEditor);
     connect(m_browsePagerButton, &QPushButton::clicked, this, &MainWindow::onBrowsePager);
@@ -165,6 +191,15 @@ void MainWindow::setupUi()
     connect(m_deleteButton, &QPushButton::clicked, this, &MainWindow::onDeleteSession);
     connect(m_connectButton, &QPushButton::clicked, this, &MainWindow::onConnectSession);
     connect(m_inspectButton, &QPushButton::clicked, this, &MainWindow::onInspectStructs);
+}
+
+void MainWindow::onNewSession()
+{
+    m_sessionListWidget->setCurrentRow(0);
+    m_sessionNameEdit->clear();
+    m_hostEdit->setText("mume.org");
+    m_portSpinBox->setValue(4242);
+    m_sessionNameEdit->setFocus();
 }
 
 void MainWindow::onInspectStructs()
@@ -307,7 +342,7 @@ void MainWindow::onDeleteSession()
 void MainWindow::onConnectSession()
 {
     if (m_activeTerminalWidget) {
-        m_stackedWidget->removeWidget(m_activeTerminalWidget);
+        m_contentStack->removeWidget(m_activeTerminalWidget);
         delete m_activeTerminalWidget;
         m_activeTerminalWidget = nullptr;
     }
@@ -315,8 +350,8 @@ void MainWindow::onConnectSession()
     SessionProfile profile = currentProfileFromUi();
 
     m_activeTerminalWidget = new TerminalWidget(profile, this);
-    m_stackedWidget->addWidget(m_activeTerminalWidget);
-    m_stackedWidget->setCurrentWidget(m_activeTerminalWidget);
+    m_contentStack->addWidget(m_activeTerminalWidget);
+    m_contentStack->setCurrentWidget(m_activeTerminalWidget);
 
     connect(m_activeTerminalWidget, &TerminalWidget::sessionClosed, this, &MainWindow::onEndSession);
 
@@ -326,8 +361,8 @@ void MainWindow::onConnectSession()
 void MainWindow::onEndSession()
 {
     if (m_activeTerminalWidget) {
-        m_stackedWidget->setCurrentWidget(m_configPage);
-        m_stackedWidget->removeWidget(m_activeTerminalWidget);
+        m_contentStack->setCurrentWidget(m_configPage);
+        m_contentStack->removeWidget(m_activeTerminalWidget);
         m_activeTerminalWidget->deleteLater();
         m_activeTerminalWidget = nullptr;
     }

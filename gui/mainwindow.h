@@ -9,6 +9,7 @@
 #include <QFontComboBox>
 #include <QPushButton>
 #include <QStackedWidget>
+#include <QSplitter>
 
 #include "profilemanager.h"
 #include "terminalwidget.h"
@@ -29,6 +30,8 @@ private slots:
     void onDeleteSession();
     void onConnectSession();
     void onEndSession();
+    void onInspectStructs();
+    void onNewSession();
 
 private:
     void setupUi();
@@ -37,7 +40,9 @@ private:
 
     ProfileManager m_profileManager;
 
-    QStackedWidget *m_stackedWidget;
+    QSplitter *m_mainSplitter;
+    QWidget *m_sidebarWidget;
+    QStackedWidget *m_contentStack;
     QWidget *m_configPage;
     TerminalWidget *m_activeTerminalWidget = nullptr;
 
@@ -56,13 +61,11 @@ private:
     QSpinBox *m_fontSizeSpinBox;
     QCheckBox *m_tlsCheckBox;
     QCheckBox *m_utf8CheckBox;
+    QPushButton *m_newSessionButton;
     QPushButton *m_saveButton;
     QPushButton *m_deleteButton;
     QPushButton *m_connectButton;
     QPushButton *m_inspectButton;
-
-private slots:
-    void onInspectStructs();
 };
 
 #endif // MAINWINDOW_H

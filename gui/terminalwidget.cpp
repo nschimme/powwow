@@ -8,13 +8,15 @@
 #include <QGuiApplication>
 #include <QClipboard>
 #include <QLabel>
+#include <QPushButton>
 #include <QHBoxLayout>
 #include <QDebug>
 
 TerminalWidget::TerminalWidget(const SessionProfile &profile, QWidget *parent)
     : QWidget(parent),
       m_profile(profile),
-      m_terminalDisplay(new QPlainTextEdit(this))
+      m_terminalDisplay(new QPlainTextEdit(this)),
+      m_commandInput(new QLineEdit(this))
 {
     powwow_ui_ops_t ops = {};
     ops.display_text = [](void *userData, const char *text, size_t len) {
@@ -23,6 +25,8 @@ TerminalWidget::TerminalWidget(const SessionProfile &profile, QWidget *parent)
         QString str = QString::fromUtf8(text, len);
         if (str.contains("password", Qt::CaseInsensitive) || str.contains("passcode", Qt::CaseInsensitive)) {
             self->m_passwordMode = true;
+            self->m_commandInput->setEchoMode(QLineEdit::Password);
+            self->m_commandInput->setPlaceholderText(tr("Enter Password..."));
         }
         self->appendAnsiText(str);
     };
@@ -63,19 +67,29 @@ TerminalWidget::TerminalWidget(const SessionProfile &profile, QWidget *parent)
 
     // Session Toolbar for quick UX flows
     QToolBar *sessionToolbar = new QToolBar(this);
-    sessionToolbar->setStyleSheet("QToolBar { background: #252526; color: white; border-bottom: 1px solid #3c3c3c; padding: 4px; } QToolButton { color: white; padding: 4px 8px; border-radius: 3px; } QToolButton:hover { background-color: #383838; }");
-    QAction *inspectAction = sessionToolbar->addAction(tr("⚡ MUD Config (Aliases / Triggers / Variables)"));
+    sessionToolbar->setStyleSheet("QToolBar { background: #252526; color: white; border-bottom: 1px solid #3c3c3c; padding: 4px; } QToolButton { color: white; padding: 4px 8px; border-radius: 3px; font-weight: 500; } QToolButton:hover { background-color: #383838; }");
+
+    m_reconnectAction = sessionToolbar->addAction(tr("🔄 Reconnect"));
+    connect(m_reconnectAction, &QAction::triggered, this, &TerminalWidget::reconnectSession);
+
+    m_disconnectAction = sessionToolbar->addAction(tr("🔌 Disconnect"));
+    connect(m_disconnectAction, &QAction::triggered, this, &TerminalWidget::stopSession);
+
+    sessionToolbar->addSeparator();
+
+    QAction *clearAction = sessionToolbar->addAction(tr("🧹 Clear Output"));
+    connect(clearAction, &QAction::triggered, this, &TerminalWidget::clearTerminal);
+
+    QAction *inspectAction = sessionToolbar->addAction(tr("⚡ MUD Config (Aliases / Triggers)"));
     inspectAction->setShortcut(QKeySequence("Ctrl+M"));
     connect(inspectAction, &QAction::triggered, this, &TerminalWidget::openInspector);
 
-    QAction *disconnectAction = sessionToolbar->addAction(tr("🔌 Disconnect"));
-    connect(disconnectAction, &QAction::triggered, this, &TerminalWidget::stopSession);
-
     mainLayout->addWidget(sessionToolbar);
 
+    // Terminal Display
     m_terminalDisplay->setReadOnly(true);
     m_terminalDisplay->setUndoRedoEnabled(false);
-    m_terminalDisplay->setFocusPolicy(Qt::StrongFocus);
+    m_terminalDisplay->setFocusPolicy(Qt::ClickFocus);
     m_terminalDisplay->installEventFilter(this);
     m_terminalDisplay->setMaximumBlockCount(m_profile.scrollbackLines > 0 ? m_profile.scrollbackLines : 5000);
 
@@ -98,6 +112,32 @@ TerminalWidget::TerminalWidget(const SessionProfile &profile, QWidget *parent)
 
     mainLayout->addWidget(m_terminalDisplay, 1);
 
+    // Dedicated Command Input Area
+    QWidget *inputContainer = new QWidget(this);
+    inputContainer->setStyleSheet("background-color: #1e1e1e; border-top: 1px solid #3c3c3c; padding: 4px;");
+    QHBoxLayout *inputLayout = new QHBoxLayout(inputContainer);
+    inputLayout->setContentsMargins(6, 4, 6, 4);
+    inputLayout->setSpacing(6);
+
+    QLabel *promptIcon = new QLabel("❯", inputContainer);
+    promptIcon->setStyleSheet("color: #4ec9b0; font-size: 15px; font-weight: bold; padding-left: 2px;");
+
+    m_commandInput->setFont(font);
+    m_commandInput->setPlaceholderText(tr("Type command and press Enter..."));
+    m_commandInput->installEventFilter(this);
+    connect(m_commandInput, &QLineEdit::returnPressed, this, &TerminalWidget::onCommandSubmitted);
+
+    QPushButton *sendBtn = new QPushButton(tr("Send ⏎"), inputContainer);
+    sendBtn->setFixedWidth(75);
+    sendBtn->setStyleSheet("QPushButton { background-color: #0e639c; color: white; border-radius: 3px; font-weight: bold; } QPushButton:hover { background-color: #1177bb; }");
+    connect(sendBtn, &QPushButton::clicked, this, &TerminalWidget::onCommandSubmitted);
+
+    inputLayout->addWidget(promptIcon);
+    inputLayout->addWidget(m_commandInput, 1);
+    inputLayout->addWidget(sendBtn);
+
+    mainLayout->addWidget(inputContainer);
+
     // Modern bottom status bar
     QWidget *statusBarWidget = new QWidget(this);
     statusBarWidget->setStyleSheet("background-color: #007acc; color: #ffffff; font-size: 11px; padding: 2px 6px;");
@@ -118,6 +158,8 @@ TerminalWidget::TerminalWidget(const SessionProfile &profile, QWidget *parent)
     statusLayout->addWidget(m_geoLabel);
 
     mainLayout->addWidget(statusBarWidget);
+
+    m_commandInput->setFocus();
 }
 
 void TerminalWidget::updateStatusDisplay(bool connected)
@@ -125,8 +167,12 @@ void TerminalWidget::updateStatusDisplay(bool connected)
     if (m_statusLabel) {
         if (connected) {
             m_statusLabel->setText(tr("🟢 Connected"));
+            if (m_reconnectAction) m_reconnectAction->setEnabled(false);
+            if (m_disconnectAction) m_disconnectAction->setEnabled(true);
         } else {
             m_statusLabel->setText(tr("⚪ Disconnected"));
+            if (m_reconnectAction) m_reconnectAction->setEnabled(true);
+            if (m_disconnectAction) m_disconnectAction->setEnabled(false);
         }
     }
 }
@@ -189,75 +235,89 @@ void TerminalWidget::onSocketActivated(int socket)
     powwow_process_network(m_powwowSession);
 }
 
-bool TerminalWidget::eventFilter(QObject *watched, QEvent *event)
+void TerminalWidget::clearTerminal()
 {
-    if (watched == m_terminalDisplay && event->type() == QEvent::KeyPress) {
-        QKeyEvent *keyEvent = static_cast<QKeyEvent *>(event);
+    m_terminalDisplay->clear();
+}
 
-        if (keyEvent->matches(QKeySequence::Copy) ||
-            keyEvent->matches(QKeySequence::SelectAll)) {
-            return QWidget::eventFilter(watched, event);
-        }
-
-        if (keyEvent->matches(QKeySequence::Paste)) {
-            QString clipText = QGuiApplication::clipboard()->text();
-            if (!clipText.isEmpty() && m_powwowSession) {
-                powwow_send_line(m_powwowSession, clipText.toUtf8().constData());
-                QString displayMask = m_passwordMode ? QString("*").repeated(clipText.length()) : clipText;
-                appendAnsiText(displayMask);
-            }
-            return true;
-        }
-
-        sendKeyToSession(keyEvent);
-        return true;
-    }
-    return QWidget::eventFilter(watched, event);
+void TerminalWidget::reconnectSession()
+{
+    stopSession();
+    startSession();
 }
 
 void TerminalWidget::openInspector()
 {
+    emit toggleInspectorRequested();
     MudConfigDialog dlg(m_powwowSession, this);
     dlg.exec();
 }
 
-void TerminalWidget::sendKeyToSession(QKeyEvent *keyEvent)
+void TerminalWidget::onCommandSubmitted()
 {
     if (!m_powwowSession) return;
 
-    QString echoText;
+    QString text = m_commandInput->text();
+    m_commandInput->clear();
 
-    if (keyEvent->key() == Qt::Key_Return || keyEvent->key() == Qt::Key_Enter) {
-        QString lineToExecute = m_inputLineBuffer;
-        m_inputLineBuffer.clear();
-
-        appendAnsiText("\n");
-        powwow_add_history(m_powwowSession, lineToExecute.toUtf8().constData());
-        powwow_send_line(m_powwowSession, lineToExecute.toUtf8().constData());
+    if (m_passwordMode) {
         m_passwordMode = false;
-        return;
-    } else if (keyEvent->key() == Qt::Key_Backspace) {
-        if (!m_inputLineBuffer.isEmpty()) {
-            m_inputLineBuffer.chop(1);
-        }
-        echoText = "\b";
-    } else if (keyEvent->key() == Qt::Key_Tab) {
-        echoText = "\t";
+        m_commandInput->setEchoMode(QLineEdit::Normal);
+        m_commandInput->setPlaceholderText(tr("Type command and press Enter..."));
+        appendAnsiText(QString("*").repeated(text.length()) + "\n");
     } else {
-        QString text = keyEvent->text();
-        if (!text.isEmpty()) {
-            m_inputLineBuffer.append(text);
-            if (m_passwordMode) {
-                echoText = "*";
-            } else {
-                echoText = text;
+        appendAnsiText(text + "\n");
+        if (!text.trimmed().isEmpty()) {
+            m_history.append(text);
+            m_historyIndex = m_history.size();
+            powwow_add_history(m_powwowSession, text.toUtf8().constData());
+        }
+    }
+
+    powwow_send_line(m_powwowSession, text.toUtf8().constData());
+}
+
+bool TerminalWidget::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched == m_commandInput && event->type() == QEvent::KeyPress) {
+        QKeyEvent *keyEvent = static_cast<QKeyEvent *>(event);
+        if (keyEvent->key() == Qt::Key_Up) {
+            if (!m_history.isEmpty()) {
+                if (m_historyIndex > 0) {
+                    m_historyIndex--;
+                } else {
+                    m_historyIndex = 0;
+                }
+                m_commandInput->setText(m_history.at(m_historyIndex));
+            }
+            return true;
+        } else if (keyEvent->key() == Qt::Key_Down) {
+            if (!m_history.isEmpty()) {
+                if (m_historyIndex < m_history.size() - 1) {
+                    m_historyIndex++;
+                    m_commandInput->setText(m_history.at(m_historyIndex));
+                } else {
+                    m_historyIndex = m_history.size();
+                    m_commandInput->clear();
+                }
+            }
+            return true;
+        }
+    } else if (watched == m_terminalDisplay) {
+        if (event->type() == QEvent::MouseButtonPress || event->type() == QEvent::MouseButtonRelease) {
+            // Keep focus easily accessible
+        } else if (event->type() == QEvent::KeyPress) {
+            QKeyEvent *keyEvent = static_cast<QKeyEvent *>(event);
+            if (!keyEvent->matches(QKeySequence::Copy) &&
+                !keyEvent->matches(QKeySequence::SelectAll)) {
+                // Forward keystrokes directly to command line input
+                m_commandInput->setFocus();
+                QCoreApplication::sendEvent(m_commandInput, event);
+                return true;
             }
         }
     }
-
-    if (!echoText.isEmpty()) {
-        appendAnsiText(echoText);
-    }
+    return QWidget::eventFilter(watched, event);
 }
 
 void TerminalWidget::resizeEvent(QResizeEvent *event)
