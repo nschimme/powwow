@@ -261,6 +261,12 @@ int main(void)
 
     test_session_isolation();
 
+    /* 9. Verify empty line transmission (Enter keypress) */
+    printf("Testing empty line transmission (Enter key)...\n");
+    memset(g_last_server_data, 0, sizeof(g_last_server_data));
+    powwow_send_line(sess, "");
+    assert(strstr(g_last_server_data, "\r\n") != NULL);
+
     printf("==========================================\n");
     printf("All enhanced libpowwow unit tests PASSED!\n");
     printf("==========================================\n");
