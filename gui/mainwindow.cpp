@@ -349,6 +349,9 @@ void MainWindow::onConnectSession()
 
     SessionProfile profile = currentProfileFromUi();
 
+    // Auto-hide the sidebar when connecting to give 100% focus to playing
+    m_sidebarWidget->hide();
+
     m_activeTerminalWidget = new TerminalWidget(profile, this);
     m_contentStack->addWidget(m_activeTerminalWidget);
     m_contentStack->setCurrentWidget(m_activeTerminalWidget);
@@ -360,6 +363,7 @@ void MainWindow::onConnectSession()
 
 void MainWindow::onEndSession()
 {
+    m_sidebarWidget->show();
     if (m_activeTerminalWidget) {
         m_contentStack->setCurrentWidget(m_configPage);
         m_contentStack->removeWidget(m_activeTerminalWidget);

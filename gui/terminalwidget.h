@@ -65,10 +65,9 @@ private:
 
     powwow_session_t *m_powwowSession = nullptr;
 
-    class QLabel *m_statusLabel = nullptr;
-    class QLabel *m_geoLabel = nullptr;
-    class QAction *m_reconnectAction = nullptr;
-    class QAction *m_disconnectAction = nullptr;
+    class QToolButton *m_menuButton = nullptr;
+    class QLabel *m_titleLabel = nullptr;
+    class QLabel *m_statusDot = nullptr;
 };
 
 #endif // TERMINALWIDGET_H

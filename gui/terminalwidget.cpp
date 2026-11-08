@@ -1,6 +1,9 @@
 #include "terminalwidget.h"
 #include "mudconfigdialog.h"
 #include <QToolBar>
+#include <QToolButton>
+#include <QMenu>
+#include <QAction>
 #include <QRegularExpression>
 #include <QScrollBar>
 #include <QCoreApplication>
@@ -65,32 +68,62 @@ TerminalWidget::TerminalWidget(const SessionProfile &profile, QWidget *parent)
     mainLayout->setContentsMargins(0, 0, 0, 0);
     mainLayout->setSpacing(0);
 
-    // Session Toolbar for quick UX flows
-    QToolBar *sessionToolbar = new QToolBar(this);
-    sessionToolbar->setStyleSheet("QToolBar { background: #252526; color: white; border-bottom: 1px solid #3c3c3c; padding: 4px; } QToolButton { color: white; padding: 4px 8px; border-radius: 3px; font-weight: 500; } QToolButton:hover { background-color: #383838; }");
+    // Subtle, minimalist header bar (Apple-style title & discreet menu)
+    QWidget *headerBar = new QWidget(this);
+    headerBar->setStyleSheet("background-color: #181818; border-bottom: 1px solid #282828; padding: 2px 8px;");
+    QHBoxLayout *headerLayout = new QHBoxLayout(headerBar);
+    headerLayout->setContentsMargins(8, 4, 8, 4);
 
-    m_reconnectAction = sessionToolbar->addAction(tr("🔄 Reconnect"));
-    connect(m_reconnectAction, &QAction::triggered, this, &TerminalWidget::reconnectSession);
+    m_statusDot = new QLabel("⚪", headerBar);
+    m_statusDot->setStyleSheet("font-size: 10px; margin-right: 4px;");
 
-    m_disconnectAction = sessionToolbar->addAction(tr("🔌 Disconnect"));
-    connect(m_disconnectAction, &QAction::triggered, this, &TerminalWidget::stopSession);
+    QString hostTitle = m_profile.host.isEmpty() ? "mume.org" : m_profile.host;
+    uint16_t portNum = m_profile.port > 0 ? m_profile.port : 4242;
+    m_titleLabel = new QLabel(QString("%1 (%2:%3)").arg(m_profile.name.isEmpty() ? hostTitle : m_profile.name).arg(hostTitle).arg(portNum), headerBar);
+    m_titleLabel->setStyleSheet("font-weight: 500; color: #888888; font-size: 12px;");
 
-    sessionToolbar->addSeparator();
+    headerLayout->addWidget(m_statusDot);
+    headerLayout->addWidget(m_titleLabel);
+    headerLayout->addStretch(1);
 
-    QAction *clearAction = sessionToolbar->addAction(tr("🧹 Clear Output"));
-    connect(clearAction, &QAction::triggered, this, &TerminalWidget::clearTerminal);
+    // Discreet context menu button
+    m_menuButton = new QToolButton(headerBar);
+    m_menuButton->setText("•••");
+    m_menuButton->setPopupMode(QToolButton::InstantPopup);
+    m_menuButton->setStyleSheet("QToolButton { background: transparent; color: #888888; border: none; font-size: 13px; padding: 2px 6px; border-radius: 4px; } QToolButton:hover { color: #ffffff; background: #2a2a2a; } QToolButton::menu-indicator { image: none; }");
 
-    QAction *inspectAction = sessionToolbar->addAction(tr("⚡ MUD Config (Aliases / Triggers)"));
+    QMenu *contextMenu = new QMenu(m_menuButton);
+    contextMenu->setStyleSheet("QMenu { background-color: #252526; color: #cccccc; border: 1px solid #3c3c3c; border-radius: 6px; padding: 4px; } QMenu::item:selected { background-color: #094771; color: #ffffff; }");
+
+    QAction *inspectAction = contextMenu->addAction(tr("⚡ MUD Configuration..."));
     inspectAction->setShortcut(QKeySequence("Ctrl+M"));
     connect(inspectAction, &QAction::triggered, this, &TerminalWidget::openInspector);
 
-    mainLayout->addWidget(sessionToolbar);
+    QAction *clearAction = contextMenu->addAction(tr("🧹 Clear Output"));
+    clearAction->setShortcut(QKeySequence("Ctrl+L"));
+    connect(clearAction, &QAction::triggered, this, &TerminalWidget::clearTerminal);
 
-    // Terminal Display
+    contextMenu->addSeparator();
+
+    QAction *reconnectAct = contextMenu->addAction(tr("🔄 Reconnect"));
+    reconnectAct->setShortcut(QKeySequence("Ctrl+R"));
+    connect(reconnectAct, &QAction::triggered, this, &TerminalWidget::reconnectSession);
+
+    QAction *disconnectAct = contextMenu->addAction(tr("🔌 Disconnect"));
+    disconnectAct->setShortcut(QKeySequence("Ctrl+D"));
+    connect(disconnectAct, &QAction::triggered, this, &TerminalWidget::stopSession);
+
+    m_menuButton->setMenu(contextMenu);
+    headerLayout->addWidget(m_menuButton);
+
+    mainLayout->addWidget(headerBar);
+
+    // Terminal Display: Maximized, distraction-free monospace canvas
     m_terminalDisplay->setReadOnly(true);
     m_terminalDisplay->setUndoRedoEnabled(false);
     m_terminalDisplay->setFocusPolicy(Qt::ClickFocus);
     m_terminalDisplay->installEventFilter(this);
+    m_terminalDisplay->setFrameShape(QFrame::NoFrame);
     m_terminalDisplay->setMaximumBlockCount(m_profile.scrollbackLines > 0 ? m_profile.scrollbackLines : 5000);
 
     // Profile Font
@@ -101,78 +134,51 @@ TerminalWidget::TerminalWidget(const SessionProfile &profile, QWidget *parent)
     m_terminalDisplay->setFont(font);
 
     QPalette p = m_terminalDisplay->palette();
-    p.setColor(QPalette::Base, Qt::black);
-    p.setColor(QPalette::Text, Qt::lightGray);
+    p.setColor(QPalette::Base, QColor(20, 20, 20));
+    p.setColor(QPalette::Text, QColor(220, 220, 220));
     m_terminalDisplay->setPalette(p);
 
-    m_defaultFormat.setForeground(QColor(192, 192, 192)); // Light gray
-    m_defaultFormat.setBackground(Qt::black);
+    m_defaultFormat.setForeground(QColor(220, 220, 220));
+    m_defaultFormat.setBackground(QColor(20, 20, 20));
     m_defaultFormat.setFont(font);
     m_currentFormat = m_defaultFormat;
 
     mainLayout->addWidget(m_terminalDisplay, 1);
 
-    // Dedicated Command Input Area
+    // Minimalist, Seamless Command Input Bar
     QWidget *inputContainer = new QWidget(this);
-    inputContainer->setStyleSheet("background-color: #1e1e1e; border-top: 1px solid #3c3c3c; padding: 4px;");
+    inputContainer->setStyleSheet("background-color: #141414; border-top: 1px solid #282828; padding: 6px 12px;");
     QHBoxLayout *inputLayout = new QHBoxLayout(inputContainer);
-    inputLayout->setContentsMargins(6, 4, 6, 4);
-    inputLayout->setSpacing(6);
+    inputLayout->setContentsMargins(0, 0, 0, 0);
+    inputLayout->setSpacing(8);
 
     QLabel *promptIcon = new QLabel("❯", inputContainer);
-    promptIcon->setStyleSheet("color: #4ec9b0; font-size: 15px; font-weight: bold; padding-left: 2px;");
+    promptIcon->setStyleSheet("color: #4ec9b0; font-size: 14px; font-weight: bold;");
 
     m_commandInput->setFont(font);
-    m_commandInput->setPlaceholderText(tr("Type command and press Enter..."));
+    m_commandInput->setFrame(false);
+    m_commandInput->setStyleSheet("QLineEdit { background: transparent; border: none; color: #ffffff; padding: 4px 0px; selection-background-color: #264f78; }");
+    m_commandInput->setPlaceholderText(tr("Type a command..."));
     m_commandInput->installEventFilter(this);
     connect(m_commandInput, &QLineEdit::returnPressed, this, &TerminalWidget::onCommandSubmitted);
 
-    QPushButton *sendBtn = new QPushButton(tr("Send ⏎"), inputContainer);
-    sendBtn->setFixedWidth(75);
-    sendBtn->setStyleSheet("QPushButton { background-color: #0e639c; color: white; border-radius: 3px; font-weight: bold; } QPushButton:hover { background-color: #1177bb; }");
-    connect(sendBtn, &QPushButton::clicked, this, &TerminalWidget::onCommandSubmitted);
-
     inputLayout->addWidget(promptIcon);
     inputLayout->addWidget(m_commandInput, 1);
-    inputLayout->addWidget(sendBtn);
 
     mainLayout->addWidget(inputContainer);
-
-    // Modern bottom status bar
-    QWidget *statusBarWidget = new QWidget(this);
-    statusBarWidget->setStyleSheet("background-color: #007acc; color: #ffffff; font-size: 11px; padding: 2px 6px;");
-    QHBoxLayout *statusLayout = new QHBoxLayout(statusBarWidget);
-    statusLayout->setContentsMargins(6, 2, 6, 2);
-
-    m_statusLabel = new QLabel(tr("⚪ Disconnected"), statusBarWidget);
-    m_statusLabel->setStyleSheet("font-weight: bold;");
-
-    QString tlsInfo = m_profile.useTls ? "[TLS]" : "[Plain TCP]";
-    QLabel *targetLabel = new QLabel(QString("%1:%2 %3").arg(m_profile.host.isEmpty() ? "mume.org" : m_profile.host).arg(m_profile.port > 0 ? m_profile.port : 4242).arg(tlsInfo), statusBarWidget);
-
-    m_geoLabel = new QLabel(QString("%1x%2").arg(m_cols).arg(m_lines), statusBarWidget);
-
-    statusLayout->addWidget(m_statusLabel);
-    statusLayout->addWidget(targetLabel);
-    statusLayout->addStretch(1);
-    statusLayout->addWidget(m_geoLabel);
-
-    mainLayout->addWidget(statusBarWidget);
 
     m_commandInput->setFocus();
 }
 
 void TerminalWidget::updateStatusDisplay(bool connected)
 {
-    if (m_statusLabel) {
+    if (m_statusDot) {
         if (connected) {
-            m_statusLabel->setText(tr("🟢 Connected"));
-            if (m_reconnectAction) m_reconnectAction->setEnabled(false);
-            if (m_disconnectAction) m_disconnectAction->setEnabled(true);
+            m_statusDot->setText("🟢");
+            if (m_titleLabel) m_titleLabel->setStyleSheet("font-weight: 500; color: #cccccc; font-size: 12px;");
         } else {
-            m_statusLabel->setText(tr("⚪ Disconnected"));
-            if (m_reconnectAction) m_reconnectAction->setEnabled(true);
-            if (m_disconnectAction) m_disconnectAction->setEnabled(false);
+            m_statusDot->setText("⚪");
+            if (m_titleLabel) m_titleLabel->setStyleSheet("font-weight: 500; color: #777777; font-size: 12px;");
         }
     }
 }
@@ -340,9 +346,6 @@ void TerminalWidget::updateGridSize()
         int h = m_terminalDisplay->viewport()->height();
         m_cols = qMax(20, w / charWidth);
         m_lines = qMax(5, h / lineHeight);
-    }
-    if (m_geoLabel) {
-        m_geoLabel->setText(QString("%1x%2").arg(m_cols).arg(m_lines));
     }
 }
 
