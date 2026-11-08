@@ -9,5 +9,6 @@ void powwow_internal_ui_set_title(const char *title);
 void powwow_internal_ui_bell(void);
 void powwow_internal_ui_send_server_data(const char *data, size_t len);
 int  powwow_has_ui_display(void);
+void powwow_internal_ui_connection_status(int connected, const char *host, int port);
 
 #endif /* POWWOW_UI_HOOK_H */

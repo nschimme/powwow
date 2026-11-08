@@ -328,7 +328,7 @@ void MainWindow::onEndSession()
     if (m_activeTerminalWidget) {
         m_stackedWidget->setCurrentWidget(m_configPage);
         m_stackedWidget->removeWidget(m_activeTerminalWidget);
-        delete m_activeTerminalWidget;
+        m_activeTerminalWidget->deleteLater();
         m_activeTerminalWidget = nullptr;
     }
 }

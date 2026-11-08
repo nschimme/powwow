@@ -68,6 +68,13 @@ int powwow_has_ui_display(void)
     return (g_ui_ops.display_text != NULL) ? 1 : 0;
 }
 
+void powwow_internal_ui_connection_status(int connected, const char *host, int port)
+{
+    if (g_ui_ops.connection_status) {
+        g_ui_ops.connection_status(g_ui_user_data, connected ? true : false, host, port);
+    }
+}
+
 static void powwow_init_core_engine(void)
 {
     if (g_initialized) return;

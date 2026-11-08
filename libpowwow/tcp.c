@@ -94,6 +94,7 @@
 #include "edit.h"
 #include "beam.h"
 #include "log.h"
+#include "ui_hook.h"
 
 #ifdef TELOPTS
 # define TELOPTSTR(n) ((n) > NTELOPTS ? "unknown" : telopts[n])
@@ -1211,6 +1212,8 @@ void tcp_open(const char *id, char *initstring, const char *host,
     if (opt_sendsize)
 	tcp_write_tty_size();
 
+    powwow_internal_ui_connection_status(1, host, port);
+
     if (initstring) {
 	parse_instruction(initstring, 0, 0, 1);
 	history_done = 0;
@@ -1251,6 +1254,7 @@ void tcp_close(const char *id)
 		exit_powwow();
 	    tty_puts("#no connections left. Type #quit to quit.\n");
             current_connection = main_connection = NULL;
+            powwow_internal_ui_connection_status(0, conn->host ? conn->host : "", conn->port);
 	} else {
 	    /* must find another connection and promote it to main */
 	    for (int i=0; i<conn_max_index; i++) {

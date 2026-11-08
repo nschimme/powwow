@@ -38,9 +38,20 @@ TerminalWidget::TerminalWidget(const SessionProfile &profile, QWidget *parent)
         self->updateStatusDisplay(connected);
         if (connected) {
             self->appendAnsiText(QString("\n*** Connected to %1:%2 via libpowwow ***\n\n").arg(host).arg(port));
+            if (!self->m_notifier) {
+                int fd = powwow_get_connection_fd(self->m_powwowSession);
+                if (fd >= 0) {
+                    self->m_notifier = new QSocketNotifier(fd, QSocketNotifier::Read, self);
+                    connect(self->m_notifier, &QSocketNotifier::activated, self, &TerminalWidget::onSocketActivated);
+                }
+            }
         } else {
             self->appendAnsiText(QString("\n=== Connection closed ===\n"));
-            emit self->sessionClosed();
+            if (self->m_notifier) {
+                self->m_notifier->setEnabled(false);
+                delete self->m_notifier;
+                self->m_notifier = nullptr;
+            }
         }
     };
 
@@ -163,6 +174,8 @@ void TerminalWidget::stopSession()
     }
     if (m_powwowSession && powwow_is_connected(m_powwowSession)) {
         powwow_disconnect(m_powwowSession);
+    } else {
+        updateStatusDisplay(false);
     }
 }
 
