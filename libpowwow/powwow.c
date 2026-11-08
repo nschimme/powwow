@@ -187,7 +187,15 @@ void powwow_send_line(powwow_session_t *session, const char *line)
     if (main_connection && !current_connection) {
         current_connection = main_connection;
     }
-    parse_user_input((char *)line, 1);
+    if (*line == '\0') {
+        if (current_connection) {
+            tcp_write(current_connection, "");
+        } else {
+            powwow_internal_ui_send_server_data("\r\n", 2);
+        }
+    } else {
+        parse_user_input((char *)line, 1);
+    }
     tcp_flush();
     tty_flush();
 }
